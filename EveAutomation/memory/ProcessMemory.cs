@@ -103,7 +103,7 @@ namespace EveAutomation.memory
             return BitConverter.ToUInt64(bytes, 0);
         }
 
-        public IEnumerable<(ulong baseAddress, ulong length)> GetCommitedRegionsInfo(ulong start = 0, ulong end = 0xFFFFFFFFFFFFFFFF, 
+        public IEnumerable<(ulong baseAddress, ulong length)> GetCommitedRegionsInfo(ulong start = 0, ulong end = 0x7fffffffffffffff, 
             WinApi.MemoryInformationProtection requiredProtectionFlags = 0)
         {
             ulong address = start;
