@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EveAutomation.memory.python
+namespace EveAutomation.memory.python.type
 {
     internal class PyString : PyObjectVar
     {
