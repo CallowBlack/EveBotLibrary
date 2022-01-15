@@ -13,8 +13,12 @@ namespace EveAutomation.memory.python
         {
             { "type",       address => new PyType(address) },
             { "str",        address => new PyString(address) },
+            { "unicode",    address => new PyUnicode(address) },
             { "function",   address => new PyFunction(address) },
-            { "dict",       address => new PyDict(address) }
+            { "dict",       address => new PyDict(address) },
+            { "bool",       address => new PyBool(address) },
+            { "float",      address => new PyFloat(address) },
+            { "int",        address => new PyInt(address) }
         };
 
         public static PyObject? CreateObject(ulong address)
