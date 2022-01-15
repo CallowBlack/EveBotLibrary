@@ -93,11 +93,8 @@ namespace EveAutomation.memory.python
                 {
                     ulong objAddr = current.nextGCHead + 0x18;
 
-                    var pyType = new PyType(_process, objAddr);
-                    if (pyType.IsValid)
-                        yield return pyType;
-                    else
-                        yield return new PyObject(_process, objAddr);
+                    var pyObject = new PyObject(_process, objAddr);
+                    yield return PyObjectTypeConverter.ConvertToCorrectType(pyObject);
 
                     var result = readGCHead(current.nextGCHead);
                     if (!result.HasValue) break;

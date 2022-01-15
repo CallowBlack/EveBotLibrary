@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python
 {
-    internal class PyType : PyObject
+    internal class PyType : PyObjectVar
     {
         public string Name { get; private set; }
 
@@ -14,23 +14,17 @@ namespace EveAutomation.memory.python
 
         public override bool update()
         {
-            Kind = PyKind.Type;
-
-            var typePtr = _process.ReadUInt64(Address + 0x8);
-            if (typePtr == null)
+            this.Kind = PyKind.Type;
+            if (!base.update())
                 return false;
 
             if (typePtr == Address)
-                Kind = PyKind.TypeType;
-            else if (!PyObjectPool.IsTypeType((ulong)typePtr))
             {
-                if (!PyObjectPool.AddType(_process, typePtr.Value))
-                    return false;
-                if (!PyObjectPool.IsTypeType((ulong)typePtr))
-                    return false;
+                Type = this;
+                this.Kind = PyKind.TypeType;
             }
 
-            var name = _process.ReadPointedString(Address + 0x18, 255);
+            var name = Process.ReadPointedString(Address + 0x18, 255);
             if (name == null)
                 return false;
 

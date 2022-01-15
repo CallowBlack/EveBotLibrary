@@ -12,12 +12,13 @@ namespace EveAutomation.memory.python
         public PyType? Type { get; protected set; }
         public PyKind Kind { get; protected set; }
         public bool IsValid { get; protected set; }
+        public ProcessMemory Process { get; }
 
-        protected readonly ProcessMemory _process;
+        protected ulong typePtr = 0;
 
         public PyObject(ProcessMemory process, ulong address) 
         {
-            this._process = process;
+            Process = process;
             Address = address;
             Kind = PyKind.Object;
 
@@ -26,22 +27,27 @@ namespace EveAutomation.memory.python
         
         public virtual bool update()
         {
-            var typePtr = _process.ReadUInt64(Address + 0x8);
+            var typePtr = Process.ReadUInt64(Address + 0x8);
             if (typePtr == null)
                 return false;
+
+            this.typePtr = typePtr.Value;
+
+            if (typePtr == Address)
+                return true;
 
             var pyObj = PyObjectPool.GetTypeByAddress(typePtr.Value);
             if (pyObj == null)
             {
-                if (!PyObjectPool.AddType(_process, typePtr.Value))
+                if (!PyObjectPool.AddType(Process, typePtr.Value))
                     return false;
                 pyObj = PyObjectPool.GetTypeByAddress(typePtr.Value);
                 if (pyObj == null)
                     return false;
             }
 
-            if (pyObj.Kind != PyKind.Type)
-                return false;
+            if (pyObj.Name == "String")
+                Console.WriteLine("Found string!");
 
             Type = pyObj;
 

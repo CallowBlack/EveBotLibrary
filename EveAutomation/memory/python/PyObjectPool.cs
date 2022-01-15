@@ -10,7 +10,6 @@ namespace EveAutomation.memory.python
     {
         private static Dictionary<ulong, PyObject> _objects = new();
         private static Dictionary<ulong, PyType> _types = new();
-        private static PyType? _typeType = null;
         private static PyGC? _garbageCollector = null;
 
         public static bool AddType(PyType pyObject)
@@ -31,10 +30,7 @@ namespace EveAutomation.memory.python
             if (!newType.IsValid)
                 return false;
 
-            if (newType.Kind == PyKind.TypeType)
-                _typeType = newType;
-            else
-                _types.Add(address, newType);
+            _types.Add(address, newType);
 
             return true;
         }
@@ -57,8 +53,9 @@ namespace EveAutomation.memory.python
 
         public static bool IsTypeType(ulong typeAddress)
         {
-            if (_typeType == null) return false;
-            return _typeType.Address == typeAddress;
+            var type = GetTypeByAddress(typeAddress);
+            if (type == null) return false;
+            return type.Kind == PyKind.TypeType;
         }
 
         public static void AddObject(PyObject pyObject)
@@ -96,7 +93,6 @@ namespace EveAutomation.memory.python
             // Clear all data what was found ago.
             _objects.Clear();
             _types.Clear();
-            _typeType = null;
 
             if (!ScanForgarbageCollector(process) || _garbageCollector == null) {
                 Console.WriteLine("Failed to find garbage collector.");
