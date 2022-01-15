@@ -12,9 +12,11 @@ namespace EveAutomation.memory
     {
 
         private readonly IntPtr _processHandle;
+        private readonly Process _processObject;
 
-        private ProcessMemory(IntPtr processHandle) {
+        private ProcessMemory(Process process, IntPtr processHandle) {
             this._processHandle = processHandle;
+            this._processObject = process;
         }
 
         ~ProcessMemory()
@@ -27,18 +29,26 @@ namespace EveAutomation.memory
         {
             foreach(Process process in Process.GetProcesses())
             {
-                if (process.ProcessName.Equals(processName)) return Open(process.Id);
+                if (process.ProcessName.Equals(processName)) return Open(process);
             }
             return null;
         }
 
         public static ProcessMemory? Open(int processId)
         {
+            var process = Process.GetProcessById(processId);
+            if (process == null) return null;
+
+            return Open(process);
+        }
+
+        public static ProcessMemory? Open(Process process)
+        {
             IntPtr processHandle = WinApi.OpenProcess(
                 (int)(WinApi.ProcessAccessFlags.VirtualMemoryRead | WinApi.ProcessAccessFlags.QueryInformation),
-                false, processId);
+                false, process.Id);
             if (processHandle == IntPtr.Zero) return null;
-            return new ProcessMemory(processHandle);
+            return new ProcessMemory(process, processHandle);
         }
 
         public byte[]? ReadBytes(ulong startAddress, ulong length)
@@ -86,9 +96,10 @@ namespace EveAutomation.memory
             return BitConverter.ToUInt64(bytes, 0);
         }
 
-        public IEnumerable<(ulong baseAddress, ulong length)> GetCommitedRegionsInfo()
+        public IEnumerable<(ulong baseAddress, ulong length)> GetCommitedRegionsInfo(ulong start = 0, ulong end = 0xFFFFFFFFFFFFFFFF, 
+            WinApi.MemoryInformationProtection requiredProtectionFlags = 0)
         {
-            ulong address = 0;
+            ulong address = start;
             while (true)
             {
                 WinApi.MEMORY_BASIC_INFORMATION64 m;
@@ -96,9 +107,7 @@ namespace EveAutomation.memory
 
                 var regionProtection = (WinApi.MemoryInformationProtection)m.Protect;
 
-                // logLine($"{m.BaseAddress}-{(uint)m.BaseAddress + (uint)m.RegionSize - 1} : {m.RegionSize} bytes result={result}, state={(WinApi.MemoryInformationState)m.State}, type={(WinApi.MemoryInformationType)m.Type}, protection={regionProtection}");
-
-                if (address == m.BaseAddress + m.RegionSize)
+                if (address == m.BaseAddress + m.RegionSize || address > end)
                     break;
 
                 address = m.BaseAddress + m.RegionSize;
@@ -107,16 +116,14 @@ namespace EveAutomation.memory
                     continue;
 
                 var protectionFlagsToSkip = WinApi.MemoryInformationProtection.PAGE_GUARD 
-                    | WinApi.MemoryInformationProtection.PAGE_NOACCESS 
-                    | WinApi.MemoryInformationProtection.PAGE_EXECUTE;
+                    | WinApi.MemoryInformationProtection.PAGE_NOACCESS;
 
                 var matchingFlagsToSkip = protectionFlagsToSkip & regionProtection;
+                var userRequiredFlagsMatch = requiredProtectionFlags & regionProtection;
 
-                if (matchingFlagsToSkip != 0)
-                {
-                    // logLine($"Skipping region beginning at {m.BaseAddress:X} as it has flags {matchingFlagsToSkip}.");
+                if (matchingFlagsToSkip != 0 || userRequiredFlagsMatch != requiredProtectionFlags)
                     continue;
-                }
+
                 yield return (m.BaseAddress, m.RegionSize);
             };
         }
@@ -128,9 +135,24 @@ namespace EveAutomation.memory
             return (m.BaseAddress, m.RegionSize);
         }
 
-        public (ulong baseAddress, ulong length) GetModuleRegionInfo(string moduleName)
+        public IEnumerable<(ulong baseAddress, ulong length)>? GetModuleRegionsInfo(string moduleName)
         {
+            var module = FindModuleByName(moduleName);
+            if (module == null)
+                return null;
 
+            return GetCommitedRegionsInfo((ulong)module.BaseAddress.ToInt64(), (ulong)(module.BaseAddress.ToInt64() + module.ModuleMemorySize),
+                WinApi.MemoryInformationProtection.PAGE_READWRITE);
+        }
+
+        public ProcessModule? FindModuleByName(string moduleName)
+        {
+            foreach (ProcessModule module in _processObject.Modules)
+            {
+                if (module.ModuleName == moduleName)
+                    return module;
+            }
+            return null;
         }
 
         public IEnumerable<(ulong baseAddress, byte[] content)> ReadCommitedRegionsContent()
