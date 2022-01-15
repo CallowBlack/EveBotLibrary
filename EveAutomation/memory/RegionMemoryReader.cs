@@ -1,0 +1,99 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace EveAutomation.memory
+{
+    internal class RegionMemoryReader
+    {
+        public ulong Address { 
+            get => CurrentRegion.baseAddress + _regionOffset;
+            set {
+                if (!CanRead)
+                    return;
+
+                _regionOffset = value - CurrentRegion.baseAddress;
+                if (_regionOffset < CurrentRegion.length)
+                    return;
+
+                while (CanRead && _regionOffset >= CurrentRegion.length)
+                {
+                    _regionOffset -= CurrentRegion.length;
+                    _currentRegion++;
+                }
+                LoadCurrentRegion();
+            }
+        }
+        
+        public bool CanRead { get => _currentRegion < _regionsInfo.Count; }
+
+        public (ulong baseAddress, ulong length) CurrentRegion { get => _regionsInfo[_currentRegion]; }
+
+        private ProcessMemory _process;
+        private IReadOnlyList<(ulong baseAddress, ulong length)> _regionsInfo;
+
+        private int _currentRegion = 0;
+        private ulong _regionOffset = 0;
+        private byte[] _regionContent = Array.Empty<byte>();
+
+        public RegionMemoryReader(ProcessMemory process)
+        {
+            this._process = process;
+            this._regionsInfo = process.GetCommitedRegionsInfo().ToList();
+            LoadCurrentRegion();
+        }
+
+        public byte[] ReadBytes(uint length, uint offset = 0)
+        {
+            var start = _regionOffset + offset;
+            if (start >= CurrentRegion.length) return Array.Empty<byte>();
+            var end = start + length >= CurrentRegion.length ? CurrentRegion.length : start + length;
+
+            var bytes = new byte[end - start];
+            Buffer.BlockCopy(_regionContent, Convert.ToInt32(start), bytes, 0, Convert.ToInt32(end - start));
+            return bytes;
+        }
+
+        public string ReadString(uint offset = 0, uint maxLength = 255)
+        {
+            byte[] bytes = ReadBytes(offset, maxLength);
+            bytes = bytes.TakeWhile(character => 0 < character).ToArray();
+            return Encoding.ASCII.GetString(bytes);
+        }
+
+        public string ReadStringPointer(uint offset = 0, uint maxLength = 255)
+        {
+            var strAddr = ReadUInt64(offset);
+            if (strAddr == 0) return "";
+
+            var result = _process.ReadString(strAddr, maxLength);
+            return result ?? "";
+        }
+
+
+        public ulong ReadUInt64(uint offset = 0)
+        {
+            var pos = _regionOffset + offset;
+            if (pos + 4 >= CurrentRegion.length) return 0;
+            return BitConverter.ToUInt64(_regionContent, (int)pos);
+        }
+
+        private void LoadCurrentRegion()
+        {
+            if (!CanRead)
+                return;
+
+            var result = _process.ReadBytes(CurrentRegion.baseAddress, CurrentRegion.length);
+            if (result == null)
+                throw new Exception($"Failed to ReadProcessMemory at 0x{CurrentRegion.baseAddress:X}.");
+            _regionContent = result;
+        }
+
+        public void LoadRegionsInfo()
+        {
+            this._regionsInfo = _process.GetCommitedRegionsInfo().ToList();
+        }
+    }
+}
