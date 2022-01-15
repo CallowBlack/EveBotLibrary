@@ -7,40 +7,20 @@ if (process == null) {
     return;
 }
 
-var regionCount = new Dictionary<ulong, int>();
+var moduleRegions = process.GetModuleRegionsInfo("python27.dll");
+if (moduleRegions == null)
+{
+    Console.WriteLine("Python27 module not found.");
+    return;
+}
 
-var regions = process.GetCommitedRegionsInfo().ToList();
+foreach (var region in moduleRegions) {
+    Console.WriteLine($"Region 0x{region.baseAddress:X} - 0x{region.baseAddress + region.length:X}");
+}
+
 PyObjectPool.ScanProcessMemory(process);
 
-foreach (var item in PyObjectPool.GetTypes()) 
+foreach (var pyObject in PyObjectPool.GetObjects())
 {
-    var baseAddress = process.GetRegionInfo(item.Address).baseAddress;
-    if (!regionCount.ContainsKey(baseAddress))
-        regionCount[baseAddress] = 0;
-    regionCount[baseAddress]++;
-    Console.WriteLine(item);
+    Console.WriteLine(pyObject);
 }
-
-Console.WriteLine("Regions for types: ");
-foreach (var item in regionCount.OrderBy((entry) => entry.Value))
-{
-    (ulong baseAddress, ulong length) = process.GetRegionInfo(item.Key);
-    Console.WriteLine($"0x{baseAddress:X} - 0x{baseAddress + length:X}: {item.Value}");
-}
-
-//regionCount.Clear();
-
-//foreach (var item in PyObjectPool.GetObjects())
-//{
-//    var baseAddress = process.GetRegionInfo(item.Address).baseAddress;
-//    if (!regionCount.ContainsKey(baseAddress))
-//        regionCount[baseAddress] = 0;
-//    regionCount[baseAddress]++;
-//}
-
-//Console.WriteLine("Regions for objects: ");
-//foreach (var item in regionCount.OrderBy((entry) => entry.Value))
-//{
-//    (ulong baseAddress, ulong length) = process.GetRegionInfo(item.Key);
-//    Console.WriteLine($"0x{baseAddress:X} - 0x{baseAddress + length:X}: {item.Value}");
-//}
