@@ -10,7 +10,8 @@ namespace EveAutomation.memory.python
     {
         private static Dictionary<ulong, PyObject> _objects = new();
         private static Dictionary<ulong, PyType> _types = new();
-        private static Dictionary<ulong, PyType> _typeTypes = new();
+        private static PyType? _typeType = null;
+        private static PyGC? _garbageCollector = null;
 
         public static bool AddType(PyType pyObject)
         {
@@ -31,7 +32,7 @@ namespace EveAutomation.memory.python
                 return false;
 
             if (newType.Kind == PyKind.TypeType)
-                _typeTypes.Add(address, newType);
+                _typeType = newType;
             else
                 _types.Add(address, newType);
 
@@ -50,13 +51,14 @@ namespace EveAutomation.memory.python
 
         public static PyType? GetTypeByAddress(ulong typeAddress)
         {
-            if (!ContainsObject(typeAddress)) return null;
+            if (!ContainsType(typeAddress)) return null;
             return _types[typeAddress];
         }
 
         public static bool IsTypeType(ulong typeAddress)
         {
-            return _typeTypes.ContainsKey(typeAddress);
+            if (_typeType == null) return false;
+            return _typeType.Address == typeAddress;
         }
 
         public static void AddObject(PyObject pyObject)
@@ -65,7 +67,10 @@ namespace EveAutomation.memory.python
                 return;
             
             if (pyObject.Kind == PyKind.Type || pyObject.Kind == PyKind.TypeType)
+            {
+                AddType((PyType)pyObject);
                 return;
+            }
 
             _objects.Add(pyObject.Address, pyObject);
         }
@@ -88,79 +93,78 @@ namespace EveAutomation.memory.python
 
         public static void ScanProcessMemory(ProcessMemory process)
         {
-            //ScanForPyType_Type(process);
-            //ScanForPyTypes(process);
-            //ScanForPyObjects(process); 
+            // Clear all data what was found ago.
+            _objects.Clear();
+            _types.Clear();
+            _typeType = null;
+
+            if (!ScanForgarbageCollector(process) || _garbageCollector == null) {
+                Console.WriteLine("Failed to find garbage collector.");
+                return;
+            }
+
+            // Adding collector objects to the pool.
+            foreach (var pyObj in _garbageCollector.GetObjects())
+            {
+                AddObject(pyObj);
+            }
         }
 
-        static bool IsPyType_Type(RegionMemoryReader reader)
+        static bool IsgarbageCollector(RegionMemoryReader region)
         {
-            // https://docs.python.org/2/c-api/typeobj.html?highlight=ob_type#c.PyObject.ob_type
-            // https://github.com/python/cpython/blob/362ede2232107fc54d406bb9de7711ff7574e1d4/Objects/typeobject.c#L2879
-            // For PyType_Type "ob_type" is pointer to PyType_Type itself.
-            // ob_type offset is 0x8 (8) for x64 system.
-            // https://github.com/python/cpython/blob/362ede2232107fc54d406bb9de7711ff7574e1d4/Include/object.h#L78
-            var ob_type_addr = reader.ReadUInt64(0x8);
-            if (ob_type_addr != reader.Address) return false;
+            // garbage collector consists of 3 generators which structure defined in
+            // https://github.com/python/cpython/blob/362ede2232107fc54d406bb9de7711ff7574e1d4/Modules/gcmodule.c#L43
 
-            // For PyType_Type tp_name = "type".
-            // tp_name offset is 0x18 (24) for x64 system.
-            var tp_name = reader.ReadStringPointer(0x18, 5);
-            if (tp_name != "type") return false;
+            // PyGC_Head defined in
+            // https://github.com/python/cpython/blob/362ede2232107fc54d406bb9de7711ff7574e1d4/Include/objimpl.h#L266
+
+            uint objectOffset = 0;
+
+            // We use thresholdes like a pattern for find. Threasholdes is defined where garbage collector is.
+            uint[] thresholdes = { 700, 10, 10};
+
+            foreach (uint targetThreshold in thresholdes)
+            {
+                // PyGC_Head.gc.gc_next must be pointer
+                var gcNext = region.IsPointer(objectOffset);
+                if (!gcNext) return false;
+
+                // PyGC_Head.gc.gc_prev must be pointer
+                var gcPrev = region.IsPointer(objectOffset + 0x8);
+                if (!gcPrev) return false;
+
+                // threshold must be certain number integer
+                var threshold = region.ReadUInt32(objectOffset + 0x18);
+                if (threshold != targetThreshold) return false;
+
+                objectOffset += 0x20;
+            }
 
             return true;
+
         }
 
-        static bool IsPyType(RegionMemoryReader reader)
+        static bool ScanForgarbageCollector(ProcessMemory process)
         {
-            // See IsPyType_Type
-            var ob_type_addr = reader.ReadUInt64(0x8);
-            if (!_typeTypes.ContainsKey(ob_type_addr)) return false;
+            // Garbage collector must be in image of python27.dll module.
+            var pythonRegions = process.GetModuleRegionsInfo("python27.dll", WinApi.MemoryInformationProtection.PAGE_READWRITE);
+            if (pythonRegions == null)
+            {
+                Console.WriteLine("Python27.dll not found in the process.");
+                return false;
+            }
 
-            var tp_name = reader.ReadStringPointer(0x18, 8);
-            if (tp_name == null || tp_name.Length < 3) return false;
-
-            return true;
-        }
-
-        static bool IsPyObject(RegionMemoryReader reader)
-        {
-            // See IsPyType_Type
-            var ob_type_addr = reader.ReadUInt64(0x8);
-            return _types.ContainsKey(ob_type_addr);
-        }
-
-        static void ScanForPyType_Type(ProcessMemory process)
-        {
-            RegionMemoryReader reader = new(process);
+            RegionMemoryReader reader = new(process, pythonRegions);
             while (reader.CanRead)
             {
-                if (IsPyType_Type(reader))
-                    _typeTypes.Add(reader.Address, new PyType(process, reader.Address));
+                if (IsgarbageCollector(reader))
+                {
+                    _garbageCollector = new PyGC(process, reader.Address);
+                    return true;
+                }
                 reader.Address += 8;
             }
-        }
-
-        static void ScanForPyTypes(ProcessMemory process)
-        {
-            RegionMemoryReader reader = new(process);
-            while (reader.CanRead)
-            {
-                if (IsPyType(reader))
-                    AddType(new PyType(process, reader.Address));
-                reader.Address += 8;
-            }
-        }
-
-        static void ScanForPyObjects(ProcessMemory process)
-        {
-            RegionMemoryReader reader = new(process);
-            while (reader.CanRead)
-            {
-                if (IsPyObject(reader))
-                    AddObject(new PyObject(process, reader.Address));
-                reader.Address += 8;
-            }
+            return false;
         }
     }
 }

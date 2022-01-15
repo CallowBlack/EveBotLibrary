@@ -38,10 +38,15 @@ namespace EveAutomation.memory
         private ulong _regionOffset = 0;
         private byte[] _regionContent = Array.Empty<byte>();
 
-        public RegionMemoryReader(ProcessMemory process)
+        public RegionMemoryReader(ProcessMemory process, IEnumerable<(ulong baseAddress, ulong length)>? regions = null)
         {
             this._process = process;
-            this._regionsInfo = process.GetCommitedRegionsInfo().ToList();
+
+            if (regions == null)
+                this._regionsInfo = process.GetCommitedRegionsInfo().ToList();
+            else 
+                this._regionsInfo = regions.ToList();
+
             LoadCurrentRegion();
         }
 
@@ -63,6 +68,20 @@ namespace EveAutomation.memory
             return Encoding.ASCII.GetString(bytes);
         }
 
+        public bool IsPointer(uint offset = 0)
+        {
+            var ptr = ReadUInt64(offset);
+            var value = _process.ReadUInt64(ptr);
+            return value != null;
+        }
+
+        public uint ReadUInt32(uint offset = 0)
+        {
+            var pos = _regionOffset + offset;
+            if (pos + 4 >= CurrentRegion.length) return 0;
+            return BitConverter.ToUInt32(_regionContent, (int)pos);
+        }
+
         public string ReadStringPointer(uint offset = 0, uint maxLength = 255)
         {
             var strAddr = ReadUInt64(offset);
@@ -76,7 +95,7 @@ namespace EveAutomation.memory
         public ulong ReadUInt64(uint offset = 0)
         {
             var pos = _regionOffset + offset;
-            if (pos + 4 >= CurrentRegion.length) return 0;
+            if (pos + 8 >= CurrentRegion.length) return 0;
             return BitConverter.ToUInt64(_regionContent, (int)pos);
         }
 
@@ -89,11 +108,6 @@ namespace EveAutomation.memory
             if (result == null)
                 throw new Exception($"Failed to ReadProcessMemory at 0x{CurrentRegion.baseAddress:X}.");
             _regionContent = result;
-        }
-
-        public void LoadRegionsInfo()
-        {
-            this._regionsInfo = _process.GetCommitedRegionsInfo().ToList();
         }
     }
 }

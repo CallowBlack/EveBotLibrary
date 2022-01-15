@@ -30,12 +30,15 @@ namespace EveAutomation.memory.python
             if (typePtr == null)
                 return false;
 
-            if (!PyObjectPool.ContainsType((ulong)typePtr))
-                return false;
-
-            var pyObj = PyObjectPool.GetTypeByAddress((ulong)typePtr);
+            var pyObj = PyObjectPool.GetTypeByAddress(typePtr.Value);
             if (pyObj == null)
-                return false;
+            {
+                if (!PyObjectPool.AddType(_process, typePtr.Value))
+                    return false;
+                pyObj = PyObjectPool.GetTypeByAddress(typePtr.Value);
+                if (pyObj == null)
+                    return false;
+            }
 
             if (pyObj.Kind != PyKind.Type)
                 return false;

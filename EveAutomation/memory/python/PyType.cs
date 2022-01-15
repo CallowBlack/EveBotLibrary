@@ -20,12 +20,16 @@ namespace EveAutomation.memory.python
             if (typePtr == null)
                 return false;
 
-            if (!PyObjectPool.IsTypeType((ulong)typePtr))
-                return false;
-
             if (typePtr == Address)
                 Kind = PyKind.TypeType;
-            
+            else if (!PyObjectPool.IsTypeType((ulong)typePtr))
+            {
+                if (!PyObjectPool.AddType(_process, typePtr.Value))
+                    return false;
+                if (!PyObjectPool.IsTypeType((ulong)typePtr))
+                    return false;
+            }
+
             var name = _process.ReadPointedString(Address + 0x18, 255);
             if (name == null)
                 return false;

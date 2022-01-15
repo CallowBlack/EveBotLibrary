@@ -11,5 +11,10 @@ namespace EveAutomation.memory.python
         Object,
         TypeType,
         Type,
+        Function,
+        String,
+        Tuple,
+        Dictionary,
+        List
     }
 }

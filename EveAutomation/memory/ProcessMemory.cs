@@ -89,6 +89,13 @@ namespace EveAutomation.memory
             return strPtr == null ? null : ReadString((ulong)strPtr, maxLength);
         }
 
+        public uint? ReadUInt32(ulong address)
+        {
+            var bytes = ReadBytes(address, 4);
+            if (bytes == null) return null;
+            return BitConverter.ToUInt32(bytes, 0);
+        }
+
         public ulong? ReadUInt64(ulong address)
         {
             var bytes = ReadBytes(address, 8);
@@ -135,14 +142,13 @@ namespace EveAutomation.memory
             return (m.BaseAddress, m.RegionSize);
         }
 
-        public IEnumerable<(ulong baseAddress, ulong length)>? GetModuleRegionsInfo(string moduleName)
+        public IEnumerable<(ulong baseAddress, ulong length)>? GetModuleRegionsInfo(string moduleName, WinApi.MemoryInformationProtection requiredProtection = 0)
         {
             var module = FindModuleByName(moduleName);
             if (module == null)
                 return null;
 
-            return GetCommitedRegionsInfo((ulong)module.BaseAddress.ToInt64(), (ulong)(module.BaseAddress.ToInt64() + module.ModuleMemorySize),
-                WinApi.MemoryInformationProtection.PAGE_READWRITE);
+            return GetCommitedRegionsInfo((ulong)module.BaseAddress.ToInt64(), (ulong)(module.BaseAddress.ToInt64() + module.ModuleMemorySize), requiredProtection);
         }
 
         public ProcessModule? FindModuleByName(string moduleName)
