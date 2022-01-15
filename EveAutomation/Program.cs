@@ -1,5 +1,6 @@
 ﻿using EveAutomation.memory;
 using EveAutomation.memory.python;
+using EveAutomation.memory.python.type;
 
 var process = ProcessMemory.Open("exefile");
 if (process == null) {
@@ -20,7 +21,7 @@ foreach (var region in moduleRegions) {
 
 PyObjectPool.ScanProcessMemory(process);
 
-foreach (var pyObject in PyObjectPool.GetObjects())
+foreach (var pyObject in PyObjectPool.GetObjects().Where(pyobject => pyobject is PyDict))
 {
     Console.WriteLine(pyObject);
 }

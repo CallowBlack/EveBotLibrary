@@ -37,12 +37,10 @@ namespace EveAutomation.memory.python
 
         private PyGCGenerator[] _generators = new PyGCGenerator[3];
 
-        private ProcessMemory _process;
         private ulong _address;
 
-        public PyGC(ProcessMemory process, ulong address)
+        public PyGC(ulong address)
         {
-            this._process = process;
             this._address = address;
             readGenerators();
         }
@@ -53,10 +51,10 @@ namespace EveAutomation.memory.python
             {
                 ulong objectAddress = GetGeneratorAddress(i);
 
-                var threshold = _process.ReadUInt32(objectAddress + 0x18);
+                var threshold = ProcessMemory.Instance.ReadUInt32(objectAddress + 0x18);
                 if (!threshold.HasValue) return;
 
-                var count = _process.ReadUInt32(objectAddress + 0x1C);
+                var count = ProcessMemory.Instance.ReadUInt32(objectAddress + 0x1C);
                 if (!count.HasValue) return;
 
                 var gcHead = readGCHead(objectAddress);
@@ -69,10 +67,10 @@ namespace EveAutomation.memory.python
 
         private PyGCHead? readGCHead(ulong objectAddress)
         {
-            var gcNext = _process.ReadUInt64(objectAddress);
+            var gcNext = ProcessMemory.Instance.ReadUInt64(objectAddress);
             if (!gcNext.HasValue) return null;
 
-            var gcPrev = _process.ReadUInt64(objectAddress + 0x8);
+            var gcPrev = ProcessMemory.Instance.ReadUInt64(objectAddress + 0x8);
             if (!gcPrev.HasValue) return null;
 
             return new PyGCHead(gcNext.Value, gcPrev.Value);
@@ -83,7 +81,7 @@ namespace EveAutomation.memory.python
             return _address + id * 0x20;
         }
  
-        public IEnumerable<PyObject> GetObjects()
+        public IEnumerable<ulong> GetObjectAddresses()
         {
             for (uint i = 0; i < _generators.Length; i++)
             {
@@ -92,10 +90,7 @@ namespace EveAutomation.memory.python
                 var current = generator.GCHead;
                 while (current.nextGCHead != genAddr)
                 {
-                    ulong objAddr = current.nextGCHead + 0x18;
-
-                    var pyObject = new PyObject(_process, objAddr);
-                    yield return PyObjectTypeConverter.ConvertToCorrectType(pyObject);
+                    yield return current.nextGCHead + 0x18;
 
                     var result = readGCHead(current.nextGCHead);
                     if (!result.HasValue) break;

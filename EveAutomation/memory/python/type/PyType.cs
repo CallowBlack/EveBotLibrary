@@ -8,23 +8,23 @@ namespace EveAutomation.memory.python.type
 {
     internal class PyType : PyObjectVar
     {
+        public static PyType EmptyType = new PyType(0);
+
         public string Name { get; private set; }
 
-        public PyType(ProcessMemory process, ulong address) : base(process, address) {}
+        public bool IsTypeType { get => this.Type == this; }
+
+        public PyType(ulong address) : base(address) {}
 
         public override bool update()
         {
-            this.Kind = PyKind.Type;
             if (!base.update())
                 return false;
 
             if (typePtr == Address)
-            {
                 Type = this;
-                this.Kind = PyKind.TypeType;
-            }
 
-            var name = Process.ReadPointedString(Address + 0x18, 255);
+            var name = ProcessMemory.Instance.ReadPointedString(Address + 0x18, 255);
             if (name == null)
                 return false;
 
@@ -34,7 +34,7 @@ namespace EveAutomation.memory.python.type
 
         public override string ToString()
         {
-            return $"0x{Address:X}: PyType [Name {Name}]{(Kind == PyKind.TypeType ? " TT!" : "" )}";
+            return $"0x{Address:X}: PyType [Name {Name}]{(IsTypeType ? " TT!" : "" )}";
         }
     }
 }

@@ -10,6 +10,16 @@ namespace EveAutomation.memory
 {
     internal class ProcessMemory
     {
+        public static ProcessMemory Instance { 
+            get
+            {
+                if (_instance == null)
+                    throw new Exception("Trying to access to unopened process.");
+                return _instance;
+            }
+        }
+
+        private static ProcessMemory? _instance;
 
         private readonly IntPtr _processHandle;
         private readonly Process _processObject;
@@ -48,7 +58,8 @@ namespace EveAutomation.memory
                 (int)(WinApi.ProcessAccessFlags.VirtualMemoryRead | WinApi.ProcessAccessFlags.QueryInformation),
                 false, process.Id);
             if (processHandle == IntPtr.Zero) return null;
-            return new ProcessMemory(process, processHandle);
+            _instance = new ProcessMemory(process, processHandle);
+            return _instance;
         }
 
         public byte[]? ReadBytes(ulong startAddress, ulong length)

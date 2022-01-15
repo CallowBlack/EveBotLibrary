@@ -8,25 +8,15 @@ namespace EveAutomation.memory.python.type
 {
     internal class PyString : PyObjectVar
     {
-        public PyString(ProcessMemory process, ulong address) : base(process, address)
+
+        public string Value { get => ProcessMemory.Instance.ReadString(Address + 0x20, (uint) (Length + 1)) ?? ""; }
+        public uint Hash { get => ProcessMemory.Instance.ReadUInt32(Address + 0x18) ?? 0; }
+
+        public PyString(ulong address) : base(address) { }
+
+        public override string ToString()
         {
-        }
-
-        public override bool update()
-        {
-            if (!base.update())
-                return false;
-
-            var value = getValue();
-            if (value == null)
-                return false;
-
-            return true;
-        }
-
-        public string? getValue()
-        {
-            return Process.ReadString(Address + 0x20, (uint)(Length + 1));
+            return Value;
         }
 
     }

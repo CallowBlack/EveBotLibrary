@@ -10,30 +10,28 @@ namespace EveAutomation.memory.python.type
     {
         public string Name { get; private set; }
 
-        public PyFunction(ProcessMemory process, ulong address) : base(process, address)
-        {
-        }
+        public PyFunction(ulong address) : base(address) { Name = ""; }
 
         public override bool update()
         {
             if (!base.update())
                 return false;
 
-            var strObjPtr = Process.ReadUInt64(Address + 0x38);
+            var strObjPtr = ProcessMemory.Instance.ReadUInt64(Address + 0x38);
             if (strObjPtr == null)
                 return false;
 
-            var pyObj = new PyObject(Process, strObjPtr.Value);
-            var strObj = PyObjectTypeConverter.ConvertToCorrectType(pyObj) as PyString;
+            var strObj = PyObjectPool.Get(strObjPtr.Value) as PyString;
             if (strObj == null)
                 return false;
 
-            var strVal = strObj.getValue();
-            if (strVal == null)
-                return false;
-
-            Name = strVal;
+            Name = strObj.Value;
             return true;
+        }
+
+        public override string ToString()
+        {
+            return $"0x{Address:X}: Function {Name}(...)";
         }
     }
 }

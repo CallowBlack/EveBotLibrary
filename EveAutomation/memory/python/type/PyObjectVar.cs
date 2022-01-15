@@ -8,20 +8,9 @@ namespace EveAutomation.memory.python.type
 {
     internal class PyObjectVar : PyObject
     {
-        public ulong Length { get; private set; }
+        public ulong Length { get => ProcessMemory.Instance.ReadUInt64(Address + 0x10) ?? 0; }
 
-        public PyObjectVar(ProcessMemory process, ulong address) : base(process, address) { }
+        public PyObjectVar(ulong address) : base(address) { }
 
-        public override bool update()
-        {
-            if (!base.update())
-                return false;
-
-            var lengthTemp = Process.ReadUInt64(Address + 0x10);
-            if (!lengthTemp.HasValue) return false;
-
-            Length = lengthTemp.Value;
-            return true;
-        }
     }
 }

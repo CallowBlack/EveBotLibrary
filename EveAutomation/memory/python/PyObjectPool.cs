@@ -10,90 +10,30 @@ namespace EveAutomation.memory.python
     internal static class PyObjectPool
     {
         private static Dictionary<ulong, PyObject> _objects = new();
-        private static Dictionary<ulong, PyType> _types = new();
         private static PyGC? _garbageCollector = null;
 
-        public static bool AddType(PyType pyObject)
+        public static PyObject? Get(ulong address)
         {
-            if (ContainsType(pyObject.Address))
-                return false;
+            if (_objects.ContainsKey(address))
+                return _objects[address];
 
-            _types.Add(pyObject.Address, pyObject);
-            return true;
+            var newObject = PyObjectTypeDeterminer.CreateObject(address);
+            if (newObject == null)
+                return null;
+
+            _objects.Add(address, newObject);
+            return newObject;
         }
 
-        public static bool AddType(ProcessMemory processMemory, ulong address)
+        public static IList<PyObject> GetObjects()
         {
-            if (ContainsType(address))
-                return false;
-
-            var newType = new PyType(processMemory, address);
-            if (!newType.IsValid)
-                return false;
-
-            _types.Add(address, newType);
-
-            return true;
-        }
-
-        public static bool ContainsType(ulong typeAddress)
-        {
-            return _types.ContainsKey(typeAddress);
-        }
-
-        public static IEnumerable<PyType> GetTypes()
-        {
-            return _types.Values;
-        }
-
-        public static PyType? GetTypeByAddress(ulong typeAddress)
-        {
-            if (!ContainsType(typeAddress)) return null;
-            return _types[typeAddress];
-        }
-
-        public static bool IsTypeType(ulong typeAddress)
-        {
-            var type = GetTypeByAddress(typeAddress);
-            if (type == null) return false;
-            return type.Kind == PyKind.TypeType;
-        }
-
-        public static void AddObject(PyObject pyObject)
-        {
-            if (ContainsObject(pyObject.Address))
-                return;
-            
-            if (pyObject.Kind == PyKind.Type || pyObject.Kind == PyKind.TypeType)
-            {
-                AddType((PyType)pyObject);
-                return;
-            }
-
-            _objects.Add(pyObject.Address, pyObject);
-        }
-
-        public static bool ContainsObject(ulong objectAddress)
-        {
-            return _objects.ContainsKey(objectAddress);
-        }
-
-        public static IEnumerable<PyObject> GetObjects()
-        {
-            return _objects.Values;
-        }
-
-        public static PyObject? GetObjectByAddress(ulong objectAddress)
-        {
-            if (!ContainsObject(objectAddress)) return null;
-            return _objects[objectAddress];
+            return _objects.Values.ToList();
         }
 
         public static void ScanProcessMemory(ProcessMemory process)
         {
             // Clear all data what was found ago.
             _objects.Clear();
-            _types.Clear();
 
             if (!ScanForgarbageCollector(process) || _garbageCollector == null) {
                 Console.WriteLine("Failed to find garbage collector.");
@@ -101,13 +41,21 @@ namespace EveAutomation.memory.python
             }
 
             // Adding collector objects to the pool.
-            foreach (var pyObj in _garbageCollector.GetObjects())
+            foreach (var address in _garbageCollector.GetObjectAddresses())
             {
-                AddObject(pyObj);
+                if (_objects.ContainsKey(address))
+                    continue;
+
+                var newObject = PyObjectTypeDeterminer.CreateObject(address);
+                if (newObject == null)
+                    continue;
+
+                
+                _objects.Add(address, newObject);
             }
         }
 
-        static bool IsgarbageCollector(RegionMemoryReader region)
+        static bool IsGarbageCollector(RegionMemoryReader region)
         {
             // garbage collector consists of 3 generators which structure defined in
             // https://github.com/python/cpython/blob/362ede2232107fc54d406bb9de7711ff7574e1d4/Modules/gcmodule.c#L43
@@ -151,12 +99,12 @@ namespace EveAutomation.memory.python
                 return false;
             }
 
-            RegionMemoryReader reader = new(process, pythonRegions);
+            RegionMemoryReader reader = new(pythonRegions);
             while (reader.CanRead)
             {
-                if (IsgarbageCollector(reader))
+                if (IsGarbageCollector(reader))
                 {
-                    _garbageCollector = new PyGC(process, reader.Address);
+                    _garbageCollector = new PyGC(reader.Address);
                     return true;
                 }
                 reader.Address += 8;

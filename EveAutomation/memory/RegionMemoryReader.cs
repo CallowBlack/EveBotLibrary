@@ -31,19 +31,17 @@ namespace EveAutomation.memory
 
         public (ulong baseAddress, ulong length) CurrentRegion { get => _regionsInfo[_currentRegion]; }
 
-        private ProcessMemory _process;
         private IReadOnlyList<(ulong baseAddress, ulong length)> _regionsInfo;
 
         private int _currentRegion = 0;
         private ulong _regionOffset = 0;
         private byte[] _regionContent = Array.Empty<byte>();
 
-        public RegionMemoryReader(ProcessMemory process, IEnumerable<(ulong baseAddress, ulong length)>? regions = null)
+        public RegionMemoryReader(IEnumerable<(ulong baseAddress, ulong length)>? regions = null)
         {
-            this._process = process;
 
             if (regions == null)
-                this._regionsInfo = process.GetCommitedRegionsInfo().ToList();
+                this._regionsInfo = ProcessMemory.Instance.GetCommitedRegionsInfo().ToList();
             else 
                 this._regionsInfo = regions.ToList();
 
@@ -71,7 +69,7 @@ namespace EveAutomation.memory
         public bool IsPointer(uint offset = 0)
         {
             var ptr = ReadUInt64(offset);
-            var value = _process.ReadUInt64(ptr);
+            var value = ProcessMemory.Instance.ReadUInt64(ptr);
             return value != null;
         }
 
@@ -87,7 +85,7 @@ namespace EveAutomation.memory
             var strAddr = ReadUInt64(offset);
             if (strAddr == 0) return "";
 
-            var result = _process.ReadString(strAddr, maxLength);
+            var result = ProcessMemory.Instance.ReadString(strAddr, maxLength);
             return result ?? "";
         }
 
@@ -104,9 +102,9 @@ namespace EveAutomation.memory
             if (!CanRead)
                 return;
 
-            var result = _process.ReadBytes(CurrentRegion.baseAddress, CurrentRegion.length);
+            var result = ProcessMemory.Instance.ReadBytes(CurrentRegion.baseAddress, CurrentRegion.length);
             if (result == null)
-                throw new Exception($"Failed to ReadProcessMemory at 0x{CurrentRegion.baseAddress:X}.");
+                throw new Exception($"Failed to ReadProcessMemory.InstanceMemory at 0x{CurrentRegion.baseAddress:X}.");
             _regionContent = result;
         }
     }
