@@ -23,6 +23,8 @@ namespace EveAutomation.memory.python
 
         public static PyObject? CreateObject(ulong address)
         {
+            if (address == 0) return null;
+
             var typeName = GetType(address);
             if (typeName == null) return null;
 

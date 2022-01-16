@@ -14,6 +14,7 @@ namespace EveAutomation.memory.python.type
                 if (bytes == null)
                     return 0;
 
+                return BitConverter.ToDouble(bytes);
             } 
         }
 
