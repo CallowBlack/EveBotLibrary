@@ -40,6 +40,21 @@ namespace EveAutomation.memory.python.type
             return true;
         }
 
+        public PyObject? GetMemberObject(PyType.MemberDef member)
+        {
+            var valuePtr = ProcessMemory.Instance.ReadUInt64(Address + member.Offset);
+            return PyObjectPool.Get(valuePtr ?? 0);
+        }
+
+        public PyDict? GetDict()
+        {
+            var dictOffset = Type.DictOffset;
+            if (dictOffset == 0)
+                return null;
+            var dictPtr = ProcessMemory.Instance.ReadUInt64(Address + dictOffset);
+            return PyObjectPool.Get(dictPtr ?? 0) as PyDict;
+        }
+
         public override string ToString()
         {
             if (Type.Name == "NoneType")
