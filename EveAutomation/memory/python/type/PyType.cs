@@ -35,6 +35,7 @@ namespace EveAutomation.memory.python.type
         public override string ToString()
         {
             return $"0x{Address:X}: PyType [Name {Name}]{(IsTypeType ? " TT!" : "" )}";
+            return $"type<0x{Address:X}> {Name}";
         }
     }
 }

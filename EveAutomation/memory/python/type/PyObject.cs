@@ -45,8 +45,11 @@ namespace EveAutomation.memory.python.type
             var header = $"0x{Address:X}: PyObject ";
             if (Type == null)
                 return header + "Non valid";
+            if (Type.Name == "NoneType")
+                return "None";
 
             return header + $"[Type {Type.Name}]";
+            return $"object<0x{Address:X}> with type {Type.Name}";
         }
     }
 }

@@ -93,13 +93,7 @@ namespace EveAutomation.memory.python.type
 
         public override string ToString()
         {
-            var result = $"0x{Address:X}: Dict with {Count} entries:\n";
-            foreach ((PyObject key, PyObject value) in Items)
-            {
-                var keyAsString = key as PyString;
-                result += $"\t{(keyAsString != null ? keyAsString.Value : "T " + key.Type.Name)}: {(value.Type == null ? "object" : value.Type.Name)}\n";
-            }
-            return result;
+            return $"dict<0x{Address:X}> {Count} entries";
         }
 
     }

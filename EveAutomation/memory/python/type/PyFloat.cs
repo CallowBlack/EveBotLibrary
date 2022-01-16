@@ -14,11 +14,17 @@ namespace EveAutomation.memory.python.type
                 if (bytes == null)
                     return 0;
 
-                return Convert.ToDouble(bytes);
             } 
         }
 
         public PyFloat(ulong address) : base(address) { }
 
+        public override string ToString()
+        {
+            var strVal = Value.ToString();
+            if (!strVal.Contains('.'))
+                strVal += ".0";
+            return strVal;
+        }
     }
 }

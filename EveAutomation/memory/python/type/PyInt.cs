@@ -10,5 +10,9 @@ namespace EveAutomation.memory.python.type
     {
         public ulong Value { get => ProcessMemory.Instance.ReadUInt64(Address + 0x10) ?? 0; }
         public PyInt(ulong address) : base(address) { }
+        public override string ToString()
+        {
+            return Value.ToString();
+        }
     }
 }

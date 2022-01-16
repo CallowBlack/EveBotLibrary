@@ -31,7 +31,7 @@ namespace EveAutomation.memory.python.type
 
         public override string ToString()
         {
-            return $"0x{Address:X}: Function {Name}(...)";
+            return $"function<0x{Address:X}> {Name}";
         }
     }
 }
