@@ -21,7 +21,7 @@ namespace EveAutomation.memory.python.type
                     var itemPtr = ProcessMemory.Instance.ReadUInt64(itemPtrAddress);
                     if (!itemPtr.HasValue) yield break;
                     
-                    var item = PyObjectPool.Get(itemPtrAddress);
+                    var item = PyObjectPool.Get(itemPtr.Value);
                     if (item == null) yield break;
                     yield return item;
                 }
