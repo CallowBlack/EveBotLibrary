@@ -47,9 +47,21 @@ namespace EveAutomation.memory.python.type
             }
         }
 
-        public PyDict(ulong address) : base(address)
+        public PyObject? Get(string key)
         {
+            foreach ((PyObject keyObj, PyObject valueObj) in Items)
+            {
+                var strKeyObj = keyObj as PyString;
+                if (strKeyObj == null)
+                    continue;
+
+                if (strKeyObj.Value == key)
+                    return valueObj;
+            }
+            return null;
         }
+
+        public PyDict(ulong address) : base(address) { }
 
         private PyDictEntry ReadEntry(ulong address)
         {
