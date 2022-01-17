@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory
 {
-    public class ProcessMemory
+    public class ProcessMemory : MemoryReader
     {
         public static ProcessMemory Instance { 
             get
@@ -62,56 +62,25 @@ namespace EveAutomation.memory
             return _instance;
         }
 
-        public byte[]? ReadBytes(ulong startAddress, ulong length)
+        public override bool ReadBytes(ulong startAddress, ref byte[] buffer)
         {
-            var buffer = new byte[length];
-
             UIntPtr numberOfBytesReadAsPtr = UIntPtr.Zero;
 
             if (!WinApi.ReadProcessMemory(this._processHandle, startAddress, buffer, (UIntPtr)buffer.LongLength, ref numberOfBytesReadAsPtr))
-                return null;
+                return false;
 
             var numberOfBytesRead = numberOfBytesReadAsPtr.ToUInt64();
 
             if (numberOfBytesRead == 0)
-                return null;
+                return false;
 
             if (int.MaxValue < numberOfBytesRead)
-                return null;
+                return false;
 
-            if (numberOfBytesRead == (ulong)buffer.LongLength)
-                return buffer;
+            if (numberOfBytesRead != (ulong)buffer.LongLength)
+                return false;
 
-            return buffer.AsSpan(0, (int)numberOfBytesRead).ToArray();
-        }
-
-        public string? ReadString(ulong address, uint maxLength)
-        {
-            var bytes = ReadBytes(address, maxLength);
-            if (bytes == null) return null;
-
-            bytes = bytes.TakeWhile(character => 0 < character).ToArray();
-            return Encoding.ASCII.GetString(bytes);
-        }
-
-        public string? ReadPointedString(ulong ptrAddr, uint maxLength)
-        {
-            var strPtr = ReadUInt64(ptrAddr);
-            return strPtr == null ? null : ReadString((ulong)strPtr, maxLength);
-        }
-
-        public uint? ReadUInt32(ulong address)
-        {
-            var bytes = ReadBytes(address, 4);
-            if (bytes == null) return null;
-            return BitConverter.ToUInt32(bytes, 0);
-        }
-
-        public ulong? ReadUInt64(ulong address)
-        {
-            var bytes = ReadBytes(address, 8);
-            if (bytes == null) return null;
-            return BitConverter.ToUInt64(bytes, 0);
+            return true;
         }
 
         public IEnumerable<(ulong baseAddress, ulong length)> GetCommitedRegionsInfo(ulong start = 0, ulong end = 0x7fffffffffffffff, 

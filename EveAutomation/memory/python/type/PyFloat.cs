@@ -10,7 +10,7 @@ namespace EveAutomation.memory.python.type
     {
         public double Value {
             get {
-                var bytes = ProcessMemory.Instance.ReadBytes(Address + 0x10, 10);
+                var bytes = ReadBytes(Address + 0x10, 10);
                 if (bytes == null)
                     return 0;
 
@@ -18,7 +18,7 @@ namespace EveAutomation.memory.python.type
             } 
         }
 
-        public PyFloat(ulong address) : base(address) { }
+        public PyFloat(ulong address) : base(address, 0x18) { }
 
         public override string ToString()
         {

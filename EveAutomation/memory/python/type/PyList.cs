@@ -27,7 +27,7 @@ namespace EveAutomation.memory.python.type
                 }
             }
         }
-        public PyList(ulong address) : base(address) { }
+        public PyList(ulong address) : base(address, 0x20) { }
 
         public override string ToString()
         {

@@ -9,10 +9,11 @@ namespace EveAutomation.memory.python.type
     public class PyString : PyObjectVar
     {
 
-        public string Value { get => ProcessMemory.Instance.ReadString(Address + 0x20, (uint) (Length + 1)) ?? ""; }
-        public uint Hash { get => ProcessMemory.Instance.ReadUInt32(Address + 0x18) ?? 0; }
+        public string Value { get => ReadString(Address + 0x20, (uint) (Length + 1)) ?? ""; }
 
-        public PyString(ulong address) : base(address) { }
+        public uint Hash { get => ReadUInt32(Address + 0x18) ?? 0; }
+
+        public PyString(ulong address) : base(address, 0x50) { }
 
         public override string ToString()
         {

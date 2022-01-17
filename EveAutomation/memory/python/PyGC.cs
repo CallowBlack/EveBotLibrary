@@ -51,29 +51,28 @@ namespace EveAutomation.memory.python
             {
                 ulong objectAddress = GetGeneratorAddress(i);
 
-                var threshold = ProcessMemory.Instance.ReadUInt32(objectAddress + 0x18);
-                if (!threshold.HasValue) return;
+                var content = ProcessMemory.Instance.ReadBytes(objectAddress, 0x20);
+                if (content == null) return;
 
-                var count = ProcessMemory.Instance.ReadUInt32(objectAddress + 0x1C);
-                if (!count.HasValue) return;
+                BinaryReader binReader = new BinaryReader(new MemoryStream(content));
 
-                var gcHead = readGCHead(objectAddress);
-                if (!gcHead.HasValue) return;
+                var gcHead = readGCHead(ref binReader);
 
-                var newGenerator = new PyGCGenerator(gcHead.Value, threshold.Value, count.Value);
+                binReader.BaseStream.Position += 0x8;
+
+                var threshold = binReader.ReadUInt32();
+                var count = binReader.ReadUInt32();
+
+                var newGenerator = new PyGCGenerator(gcHead, threshold, count);
                 _generators[i] = newGenerator;
             }
         }
 
-        private PyGCHead? readGCHead(ulong objectAddress)
+        private PyGCHead readGCHead(ref BinaryReader reader)
         {
-            var gcNext = ProcessMemory.Instance.ReadUInt64(objectAddress);
-            if (!gcNext.HasValue) return null;
-
-            var gcPrev = ProcessMemory.Instance.ReadUInt64(objectAddress + 0x8);
-            if (!gcPrev.HasValue) return null;
-
-            return new PyGCHead(gcNext.Value, gcPrev.Value);
+            var gcNext = reader.ReadUInt64();
+            var gcPrev = reader.ReadUInt64();
+            return new PyGCHead(gcNext, gcPrev);
         }
 
         private ulong GetGeneratorAddress(uint id)
@@ -92,9 +91,11 @@ namespace EveAutomation.memory.python
                 {
                     yield return current.nextGCHead + 0x18;
 
-                    var result = readGCHead(current.nextGCHead);
-                    if (!result.HasValue) break;
-                    current = result.Value;
+                    var content = ProcessMemory.Instance.ReadBytes(current.nextGCHead, 0x10);
+                    if (content == null) break;
+
+                    BinaryReader binReader = new(new MemoryStream(content));
+                    current = readGCHead(ref binReader);
                 }
             }
         }

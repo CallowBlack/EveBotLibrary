@@ -8,11 +8,35 @@ namespace EveAutomation.memory.python.type
 {
     public class PyDict : PyObject
     {
-        public ulong Count { get => ProcessMemory.Instance.ReadUInt64(Address + 0x18) ?? 0; }
-        public IEnumerable<(PyObject key, PyObject value)> Items { get => GetItems(); }
-
-        private ulong Mask { get => ProcessMemory.Instance.ReadUInt64(Address + 0x20) ?? 0; }
+        public ulong Count { 
+            get => ReadUInt64(Address + 0x18) ?? 0; 
+        }
         
+        public IEnumerable<(PyObject key, PyObject value)> Items 
+        { 
+            get => GetItems(); 
+        }
+
+        private ulong Mask { 
+            get => ReadUInt64(Address + 0x20) ?? 0; 
+        }
+
+        public PyObject? Get(string key)
+        {
+            foreach ((PyObject keyObj, PyObject valueObj) in Items)
+            {
+                var strKeyObj = keyObj as PyString;
+                if (strKeyObj == null)
+                    continue;
+
+                if (strKeyObj.Value == key)
+                    return valueObj;
+            }
+            return null;
+        }
+
+        public PyDict(ulong address) : base(address, 0x30) { }
+
         private struct PyDictEntry
         {
             public ulong hash;
@@ -22,13 +46,14 @@ namespace EveAutomation.memory.python.type
             public enum State { Unused, Active, Dummy };
 
             public PyDictEntry(PyObject? key, ulong valuePtr, ulong hash)
-            { 
+            {
                 this.key = key;
                 this.valuePtr = valuePtr;
                 this.hash = hash;
             }
 
-            public PyDictEntry() {
+            public PyDictEntry()
+            {
                 this.key = null;
                 this.valuePtr = 0;
                 this.hash = 0;
@@ -47,50 +72,36 @@ namespace EveAutomation.memory.python.type
             }
         }
 
-        public PyObject? Get(string key)
+        private PyDictEntry ReadEntry(ref BinaryReader reader)
         {
-            foreach ((PyObject keyObj, PyObject valueObj) in Items)
-            {
-                var strKeyObj = keyObj as PyString;
-                if (strKeyObj == null)
-                    continue;
+            var hash = reader.ReadUInt64();
 
-                if (strKeyObj.Value == key)
-                    return valueObj;
-            }
-            return null;
-        }
+            var keyPtr = reader.ReadUInt64();
+            if (keyPtr == 0) return new PyDictEntry();
 
-        public PyDict(ulong address) : base(address) { }
+            var objPtr = reader.ReadUInt64();
+            if (objPtr == 0) return new PyDictEntry();
 
-        private PyDictEntry ReadEntry(ulong address)
-        {
-            var hash = ProcessMemory.Instance.ReadUInt64(address);
-            if (!hash.HasValue) return new PyDictEntry();
-
-            var keyPtr = ProcessMemory.Instance.ReadUInt64(address + 0x8);
-            if (!keyPtr.HasValue || keyPtr == 0) return new PyDictEntry();
-
-            var objPtr = ProcessMemory.Instance.ReadUInt64(address + 0x10);
-            if (!objPtr.HasValue || objPtr == 0) return new PyDictEntry();
-
-            var keyObject = PyObjectPool.Get(keyPtr.Value);
+            var keyObject = PyObjectPool.Get(keyPtr);
             if (keyObject == null) return new PyDictEntry();
 
-            return new(keyObject, objPtr.Value, hash.Value);
-
+            return new(keyObject, objPtr, hash);
         }
 
         private IEnumerable<(PyObject key, PyObject value)> GetItems()
         {
-            var tableAddr = ProcessMemory.Instance.ReadUInt64(Address + 0x28);
+            var tableAddr = ReadUInt64(Address + 0x28);
             if (!tableAddr.HasValue)
                 throw new MemberAccessException($"Failed gain access to dict table address. Dict address: {Address:X}");
 
-            for (uint i = 0, u = 0 ; i <= Mask && u < Count; i++)
+            var content = ReadBytes(tableAddr.Value, Mask * 0x18);
+            if (content == null || content.Length < (int)Mask)
+                yield break;
+
+            var reader = new BinaryReader(new MemoryStream(content));
+            for (uint i = 0, u = 0; i <= Mask && u < Count; i++)
             {
-                var currAddr = tableAddr.Value + i * 0x18;
-                var entry = ReadEntry(currAddr);
+                var entry = ReadEntry(ref reader);
                 if (entry.GetState() == PyDictEntry.State.Active && entry.key != null) // Sometimes I hate VS2019
                 {
                     var value = PyObjectPool.Get(entry.valuePtr);

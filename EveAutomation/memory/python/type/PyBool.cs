@@ -8,8 +8,8 @@ namespace EveAutomation.memory.python.type
 {
     public class PyBool : PyObject
     {
-        public bool Value { get => ProcessMemory.Instance.ReadUInt64(Address + 0x10) != 0; }
-        public PyBool(ulong address) : base(address) { }
+        public bool Value { get => ReadUInt64(Address + 0x10) != 0; }
+        public PyBool(ulong address) : base(address, 0x18) { }
 
         public override string ToString()
         {

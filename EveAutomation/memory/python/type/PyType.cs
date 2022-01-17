@@ -11,19 +11,17 @@ namespace EveAutomation.memory.python.type
     {
 
         // https://github.com/python/cpython/blob/362ede2232107fc54d406bb9de7711ff7574e1d4/Include/methodobject.h#L37
-        public class MethodDef { 
-            public ulong Address { get; private set; }
-            public string Name { get => ProcessMemory.Instance.ReadPointedString(Address, 255) ?? ""; }
-            public ulong FunctionPtr { get => ProcessMemory.Instance.ReadUInt64(Address + 0x8) ?? 0; }
+        public class MethodDef : CachebleObject { 
+            public string Name { get => ReadPointedString(Address) ?? ""; }
+            public ulong FunctionPtr { get => ReadUInt64(Address + 0x8) ?? 0; }
         
-            public MethodDef(ulong address)
-            {
-                Address = address;
+            public MethodDef(ulong address) : base(address, 0x10) {
+                _updatePeriod = 0;
             }
         }
 
         // https://github.com/python/cpython/blob/362ede2232107fc54d406bb9de7711ff7574e1d4/Include/structmember.h#L36
-        public class MemberDef
+        public class MemberDef : CachebleObject
         {
             public enum MemberType
             {
@@ -32,13 +30,12 @@ namespace EveAutomation.memory.python.type
                 Size_t, Undefined
             }
 
-            public ulong Address { get; private set; }
-            public string Name { get => ProcessMemory.Instance.ReadPointedString(Address, 255) ?? "";  }
-            public MemberType Type { get => (MemberType)(ProcessMemory.Instance.ReadUInt64(Address + 0x8) ?? (int)MemberType.Undefined); }
-            public ulong Offset { get => ProcessMemory.Instance.ReadUInt64(Address + 0x10) ?? 0; }
-            public MemberDef(ulong address)
+            public string Name { get => ReadPointedString(Address) ?? ""; }
+            public MemberType Type { get => (MemberType)(ReadUInt64(Address + 0x8) ?? (int)MemberType.Undefined); }
+            public ulong Offset { get => ReadUInt64(Address + 0x10) ?? 0; }
+            public MemberDef(ulong address) : base(address, 0x18)
             {
-                Address = address;
+                _updatePeriod = 0;
             }
         }
 
@@ -76,23 +73,23 @@ namespace EveAutomation.memory.python.type
 
         public static PyType EmptyType = new PyType(0);
 
-        public string Name { get; private set; }
+        public string Name { get => ReadPointedString(Address + 0x18) ?? ""; }
 
-        public TypeFlags Flags { get => (TypeFlags)(ProcessMemory.Instance.ReadUInt64(Address + 0xA8) ?? 0); }
+        public TypeFlags Flags { get => (TypeFlags)(ReadUInt64(Address + 0xA8) ?? 0); }
 
-        public IEnumerable<MethodDef> Methods { 
+        public IEnumerable<MethodDef> Methods{ 
             get
             {
-                var methodsPtr = ProcessMemory.Instance.ReadUInt64(Address + 0xE8);
+                var methodsPtr = ReadUInt64(Address + 0xE8);
                 if (methodsPtr.HasValue && methodsPtr.Value != 0)
                 {
                     ulong offset = 0;
-                    var startPtr = ProcessMemory.Instance.ReadUInt64(methodsPtr.Value + offset);
+                    var startPtr = ReadUInt64(methodsPtr.Value + offset);
                     while (startPtr.HasValue && startPtr.Value != 0)
                     {
                         yield return new MethodDef(methodsPtr.Value + offset);
                         offset += 0x20;
-                        startPtr = ProcessMemory.Instance.ReadUInt64(methodsPtr.Value + offset);
+                        startPtr = ReadUInt64(methodsPtr.Value + offset);
                     }
                 }
 
@@ -103,27 +100,27 @@ namespace EveAutomation.memory.python.type
         {
             get
             {
-                var membersPtr = ProcessMemory.Instance.ReadUInt64(Address + 0xF0);
+                var membersPtr = ReadUInt64(Address + 0xF0);
                 if (membersPtr.HasValue && membersPtr.Value != 0)
                 {
                     ulong offset = 0;
-                    var startPtr = ProcessMemory.Instance.ReadUInt64(membersPtr.Value + offset);
+                    var startPtr = ReadUInt64(membersPtr.Value + offset);
                     while (startPtr.HasValue && startPtr.Value != 0)
                     {
                         yield return new MemberDef(membersPtr.Value + offset);
                         offset += 0x28;
-                        startPtr = ProcessMemory.Instance.ReadUInt64(membersPtr.Value + offset);
+                        startPtr = ReadUInt64(membersPtr.Value + offset);
                     }
                 }
 
             }
         }
 
-        public PyType? BaseType { get => PyObjectPool.Get(ProcessMemory.Instance.ReadUInt64(Address + 0x100) ?? 0) as PyType; }
+        public PyType? BaseType { get => PyObjectPool.Get(ReadUInt64(Address + 0x100) ?? 0) as PyType; }
 
-        public new PyDict? Dict { get => PyObjectPool.Get(ProcessMemory.Instance.ReadUInt64(Address + 0x108) ?? 0) as PyDict; }
+        public new PyDict? Dict { get => PyObjectPool.Get(ReadUInt64(Address + 0x108) ?? 0) as PyDict; }
 
-        public ulong DictOffset { get => ProcessMemory.Instance.ReadUInt64(Address + 0x120) ?? 0; }
+        public ulong DictOffset { get => ReadUInt64(Address + 0x120) ?? 0; }
 
         public bool IsReady { get => Flags.HasFlag(TypeFlags.Ready); }
 
@@ -131,22 +128,12 @@ namespace EveAutomation.memory.python.type
 
         public bool IsTypeType { get => this.Type == this; }
 
-        public PyType(ulong address) : base(address) { Name = ""; }
-
-        public override bool update()
+        public PyType(ulong address) : base(address, 0x128) 
         {
-            if (!base.update())
-                return false;
+            _updatePeriod = 0;
 
-            if (typePtr == Address)
+            if (address == typePtr)
                 Type = this;
-
-            var name = ProcessMemory.Instance.ReadPointedString(Address + 0x18, 255);
-            if (name == null)
-                return false;
-
-            Name = name;
-            return true;
         }
 
         public override string ToString()

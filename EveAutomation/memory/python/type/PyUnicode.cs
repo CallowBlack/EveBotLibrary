@@ -6,25 +6,22 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    public class PyUnicode : PyObject
+    public class PyUnicode : PyObjectVar
     {
         public string Value { 
             get 
             {
-                var unicodeStringLength = ProcessMemory.Instance.ReadUInt64(Address + 0x10);
-                if (!unicodeStringLength.HasValue) return "";
+                if (Length > 0x1000 )
+                    throw new Exception($"Unicode string length to long. Addr: 0x{Address:X}; Length: {Length}");
 
-                if (unicodeStringLength > 0x1000 )
-                    throw new Exception($"Unicode string length to long. Addr: 0x{Address:X}; Length: {unicodeStringLength}");
-
-                var unicodeStringPtr = ProcessMemory.Instance.ReadUInt64(Address + 0x18);
+                var unicodeStringPtr = ReadUInt64(Address + 0x18);
                 if (!unicodeStringPtr.HasValue) return "";
 
-                var byteLength = unicodeStringLength.Value * 2;
+                var byteLength = Length * 2;
                 var rawContent = ProcessMemory.Instance.ReadBytes(unicodeStringPtr.Value, byteLength);
                 if (rawContent == null || rawContent.Length < (int)byteLength)
                     throw new Exception($"Failed to read unicode string content. Obj: 0x{Address:X}; Content: 0x{unicodeStringPtr:X}; " +
-                        $"Length: {unicodeStringLength}");
+                        $"Length: {Length}");
 
                 return Encoding.Unicode.GetString(rawContent, 0, (int)byteLength);
 
@@ -36,6 +33,6 @@ namespace EveAutomation.memory.python.type
             return Value;
         }
 
-        public PyUnicode(ulong address) : base(address) { }
+        public PyUnicode(ulong address) : base(address, 0x20) { }
     }
 }

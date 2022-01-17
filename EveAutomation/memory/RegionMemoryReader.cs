@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory
 {
-    public class RegionMemoryReader
+    public class RegionMemoryReader : MemoryReader
     {
         public ulong Address { 
             get => CurrentRegion.baseAddress + _regionOffset;
@@ -48,53 +48,46 @@ namespace EveAutomation.memory
             LoadCurrentRegion();
         }
 
-        public byte[] ReadBytes(uint length, uint offset = 0)
+        public override bool ReadBytes(ulong address, ref byte[] buffer)
         {
+            if (address < CurrentRegion.baseAddress || address > CurrentRegion.baseAddress + CurrentRegion.length)
+                return ProcessMemory.Instance.ReadBytes(address, ref buffer);
+
+            var offset = address - CurrentRegion.baseAddress;
+
             var start = _regionOffset + offset;
-            if (start >= CurrentRegion.length) return Array.Empty<byte>();
-            var end = start + length >= CurrentRegion.length ? CurrentRegion.length : start + length;
+            if (start >= CurrentRegion.length) return false;
 
-            var bytes = new byte[end - start];
-            Buffer.BlockCopy(_regionContent, Convert.ToInt32(start), bytes, 0, Convert.ToInt32(end - start));
-            return bytes;
+            var length = (ulong)buffer.LongLength;
+            if (start + length > CurrentRegion.length) return false;
+
+            Buffer.BlockCopy(_regionContent, Convert.ToInt32(start), buffer, 0, buffer.Length);
+            return true;
         }
 
-        public string ReadString(uint offset = 0, uint maxLength = 255)
+        public new string ReadString(ulong offset = 0, uint maxLength = 255)
         {
-            byte[] bytes = ReadBytes(offset, maxLength);
-            bytes = bytes.TakeWhile(character => 0 < character).ToArray();
-            return Encoding.ASCII.GetString(bytes);
+            return base.ReadString(CurrentRegion.baseAddress + offset, maxLength) ?? "";
         }
 
-        public bool IsPointer(uint offset = 0)
+        public new uint ReadUInt32(ulong offset = 0)
         {
-            var ptr = ReadUInt64(offset);
-            var value = ProcessMemory.Instance.ReadUInt64(ptr);
-            return value != null;
+            return base.ReadUInt32(CurrentRegion.baseAddress + offset) ?? 0;
         }
 
-        public uint ReadUInt32(uint offset = 0)
+        public string ReadStringPointer(ulong offset = 0, uint maxLength = 255)
         {
-            var pos = _regionOffset + offset;
-            if (pos + 4 >= CurrentRegion.length) return 0;
-            return BitConverter.ToUInt32(_regionContent, (int)pos);
+            return base.ReadPointedString(CurrentRegion.baseAddress + offset, maxLength) ?? string.Empty;
         }
 
-        public string ReadStringPointer(uint offset = 0, uint maxLength = 255)
+        public new ulong ReadUInt64(ulong offset = 0)
         {
-            var strAddr = ReadUInt64(offset);
-            if (strAddr == 0) return "";
-
-            var result = ProcessMemory.Instance.ReadString(strAddr, maxLength);
-            return result ?? "";
+            return base.ReadUInt64(CurrentRegion.baseAddress + offset) ?? 0;
         }
 
-
-        public ulong ReadUInt64(uint offset = 0)
+        public new bool IsPointer(ulong offset)
         {
-            var pos = _regionOffset + offset;
-            if (pos + 8 >= CurrentRegion.length) return 0;
-            return BitConverter.ToUInt64(_regionContent, (int)pos);
+            return base.IsPointer(CurrentRegion.baseAddress + offset);
         }
 
         private void LoadCurrentRegion()
