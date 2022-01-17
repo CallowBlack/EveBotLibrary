@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    internal class PyDict : PyObject
+    public class PyDict : PyObject
     {
         public ulong Count { get => ProcessMemory.Instance.ReadUInt64(Address + 0x18) ?? 0; }
         public IEnumerable<(PyObject key, PyObject value)> Items { get => GetItems(); }

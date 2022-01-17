@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory
 {
-    internal class ProcessMemory
+    public class ProcessMemory
     {
         public static ProcessMemory Instance { 
             get

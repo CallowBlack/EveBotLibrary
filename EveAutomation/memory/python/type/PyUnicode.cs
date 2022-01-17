@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    internal class PyUnicode : PyObject
+    public class PyUnicode : PyObject
     {
         public string Value { 
             get 

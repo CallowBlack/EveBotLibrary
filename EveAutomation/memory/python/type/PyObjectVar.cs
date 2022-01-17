@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    internal class PyObjectVar : PyObject
+    public class PyObjectVar : PyObject
     {
         public ulong Length { get => ProcessMemory.Instance.ReadUInt64(Address + 0x10) ?? 0; }
 

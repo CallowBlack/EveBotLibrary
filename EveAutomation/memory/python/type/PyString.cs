@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    internal class PyString : PyObjectVar
+    public class PyString : PyObjectVar
     {
 
         public string Value { get => ProcessMemory.Instance.ReadString(Address + 0x20, (uint) (Length + 1)) ?? ""; }

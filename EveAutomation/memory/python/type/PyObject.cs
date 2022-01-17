@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    internal class PyObject
+    public class PyObject
     {
         public ulong Address { get; } 
         public PyType Type { get; protected set; }

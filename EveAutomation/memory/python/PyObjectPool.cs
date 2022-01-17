@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python
 {
-    internal static class PyObjectPool
+    public static class PyObjectPool
     {
         private static Dictionary<ulong, PyObject> _objects = new();
         private static PyGC? _garbageCollector = null;

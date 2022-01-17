@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory
 {
-    internal class RegionMemoryReader
+    public class RegionMemoryReader
     {
         public ulong Address { 
             get => CurrentRegion.baseAddress + _regionOffset;

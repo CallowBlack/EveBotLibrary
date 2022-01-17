@@ -7,11 +7,11 @@ using System.Threading.Tasks;
 namespace EveAutomation.memory.python.type
 {
     // https://github.com/python/cpython/blob/362ede2232107fc54d406bb9de7711ff7574e1d4/Include/object.h#L324
-    internal class PyType : PyObjectVar
+    public class PyType : PyObjectVar
     {
 
         // https://github.com/python/cpython/blob/362ede2232107fc54d406bb9de7711ff7574e1d4/Include/methodobject.h#L37
-        internal class MethodDef { 
+        public class MethodDef { 
             public ulong Address { get; private set; }
             public string Name { get => ProcessMemory.Instance.ReadPointedString(Address, 255) ?? ""; }
             public ulong FunctionPtr { get => ProcessMemory.Instance.ReadUInt64(Address + 0x8) ?? 0; }
@@ -23,7 +23,7 @@ namespace EveAutomation.memory.python.type
         }
 
         // https://github.com/python/cpython/blob/362ede2232107fc54d406bb9de7711ff7574e1d4/Include/structmember.h#L36
-        internal class MemberDef
+        public class MemberDef
         {
             public enum MemberType
             {

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python
 {
-    internal static class PyObjectTypeDeterminer
+    public static class PyObjectTypeDeterminer
     {
         private static Dictionary<string, Func<ulong, PyObject>> _typeConstructors = new()
         {

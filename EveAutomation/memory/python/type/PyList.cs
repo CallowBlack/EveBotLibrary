@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    internal class PyList : PyObjectVar
+    public class PyList : PyObjectVar
     {
         public IEnumerable<PyObject> Items
         {

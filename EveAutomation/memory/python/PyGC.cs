@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python
 {
-    internal class PyGC
+    public class PyGC
     {
         struct PyGCHead
         {

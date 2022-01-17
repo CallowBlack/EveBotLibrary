@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory
 {
-    internal class WinApi
+    public class WinApi
     {
 
         [DllImport("kernel32.dll")]

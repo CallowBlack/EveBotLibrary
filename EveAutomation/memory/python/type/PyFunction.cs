@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    internal class PyFunction : PyObject
+    public class PyFunction : PyObject
     {
         public string Name { get; private set; }
 

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    internal class PyFloat : PyObject
+    public class PyFloat : PyObject
     {
         public double Value {
             get {
