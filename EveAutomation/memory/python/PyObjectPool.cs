@@ -30,12 +30,12 @@ namespace EveAutomation.memory.python
             return _objects.Values.ToList();
         }
 
-        public static void ScanProcessMemory(ProcessMemory process)
+        public static void ScanProcessMemory()
         {
             // Clear all data what was found ago.
             _objects.Clear();
 
-            if (!ScanForgarbageCollector(process) || _garbageCollector == null) {
+            if (!ScanForgarbageCollector() || _garbageCollector == null) {
                 Console.WriteLine("Failed to find garbage collector.");
                 return;
             }
@@ -89,10 +89,10 @@ namespace EveAutomation.memory.python
 
         }
 
-        static bool ScanForgarbageCollector(ProcessMemory process)
+        static bool ScanForgarbageCollector()
         {
             // Garbage collector must be in image of python27.dll module.
-            var pythonRegions = process.GetModuleRegionsInfo("python27.dll", WinApi.MemoryInformationProtection.PAGE_READWRITE);
+            var pythonRegions = ProcessMemory.Instance.GetModuleRegionsInfo("python27.dll", WinApi.MemoryInformationProtection.PAGE_READWRITE);
             if (pythonRegions == null)
             {
                 Console.WriteLine("Python27.dll not found in the process.");
