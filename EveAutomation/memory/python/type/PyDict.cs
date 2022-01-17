@@ -77,10 +77,9 @@ namespace EveAutomation.memory.python.type
             var hash = reader.ReadUInt64();
 
             var keyPtr = reader.ReadUInt64();
-            if (keyPtr == 0) return new PyDictEntry();
-
+            
             var objPtr = reader.ReadUInt64();
-            if (objPtr == 0) return new PyDictEntry();
+            if (keyPtr == 0 || objPtr == 0) return new PyDictEntry();
 
             var keyObject = PyObjectPool.Get(keyPtr);
             if (keyObject == null) return new PyDictEntry();
@@ -95,7 +94,7 @@ namespace EveAutomation.memory.python.type
                 throw new MemberAccessException($"Failed gain access to dict table address. Dict address: {Address:X}");
 
             var content = ReadBytes(tableAddr.Value, Mask * 0x18);
-            if (content == null || content.Length < (int)Mask)
+            if (content == null)
                 yield break;
 
             var reader = new BinaryReader(new MemoryStream(content));
