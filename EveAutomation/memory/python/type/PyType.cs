@@ -121,7 +121,7 @@ namespace EveAutomation.memory.python.type
 
         public PyType? BaseType { get => PyObjectPool.Get(ProcessMemory.Instance.ReadUInt64(Address + 0x100) ?? 0) as PyType; }
 
-        public PyDict? Dict { get => PyObjectPool.Get(ProcessMemory.Instance.ReadUInt64(Address + 0x108) ?? 0) as PyDict; }
+        public new PyDict? Dict { get => PyObjectPool.Get(ProcessMemory.Instance.ReadUInt64(Address + 0x108) ?? 0) as PyDict; }
 
         public ulong DictOffset { get => ProcessMemory.Instance.ReadUInt64(Address + 0x120) ?? 0; }
 

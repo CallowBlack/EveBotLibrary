@@ -11,6 +11,16 @@ namespace EveAutomation.memory.python.type
         public ulong Address { get; } 
         public PyType Type { get; protected set; }
         public bool IsValid { get; protected set; }
+        public PyDict? Dict {
+            get
+            {
+                var dictOffset = Type.DictOffset;
+                if (dictOffset == 0)
+                    return null;
+                var dictPtr = ProcessMemory.Instance.ReadUInt64(Address + dictOffset);
+                return PyObjectPool.Get(dictPtr ?? 0) as PyDict;
+            } 
+        }
 
         protected ulong typePtr = 0;
 
@@ -44,15 +54,6 @@ namespace EveAutomation.memory.python.type
         {
             var valuePtr = ProcessMemory.Instance.ReadUInt64(Address + member.Offset);
             return PyObjectPool.Get(valuePtr ?? 0);
-        }
-
-        public PyDict? GetDict()
-        {
-            var dictOffset = Type.DictOffset;
-            if (dictOffset == 0)
-                return null;
-            var dictPtr = ProcessMemory.Instance.ReadUInt64(Address + dictOffset);
-            return PyObjectPool.Get(dictPtr ?? 0) as PyDict;
         }
 
         public override string ToString()
