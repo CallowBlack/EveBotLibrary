@@ -76,7 +76,7 @@ namespace EveAutomation.memory.python.type
 
         public static PyType EmptyType = new PyType(0);
 
-        public string Name { get => ProcessMemory.Instance.ReadPointedString(Address + 0x18, 255) ?? ""; }
+        public string Name { get; private set; }
 
         public TypeFlags Flags { get => (TypeFlags)(ProcessMemory.Instance.ReadUInt64(Address + 0xA8) ?? 0); }
 
@@ -131,7 +131,7 @@ namespace EveAutomation.memory.python.type
 
         public bool IsTypeType { get => this.Type == this; }
 
-        public PyType(ulong address) : base(address) {}
+        public PyType(ulong address) : base(address) { Name = ""; }
 
         public override bool update()
         {
@@ -141,9 +141,11 @@ namespace EveAutomation.memory.python.type
             if (typePtr == Address)
                 Type = this;
 
-            if (Name.Length == 0)
+            var name = ProcessMemory.Instance.ReadPointedString(Address + 0x18, 255);
+            if (name == null)
                 return false;
 
+            Name = name;
             return true;
         }
 
