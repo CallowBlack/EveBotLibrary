@@ -13,7 +13,11 @@ namespace EveAutomation.memory.python.type
 
         public uint Hash { get => ReadUInt32(Address + 0x18) ?? 0; }
 
-        public PyString(ulong address) : base(address, 0x50) { }
+        public PyString(ulong address) : base(address, 0x18) 
+        {
+            _updatePeriod = 0;
+            SetSize(0x20 + Length + 1);
+        }
 
         public override string ToString()
         {

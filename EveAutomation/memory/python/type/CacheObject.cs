@@ -94,5 +94,11 @@ namespace EveAutomation.memory.python.type
             }
         }
 
+        protected void SetSize(ulong newSize)
+        {
+            _lastTimeUpdate = 0;
+            Size = newSize;
+        }
+
     }
 }
