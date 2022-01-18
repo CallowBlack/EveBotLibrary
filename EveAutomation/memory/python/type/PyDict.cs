@@ -6,12 +6,8 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    public class PyDict : PyObject
+    public class PyDict : PyObjectVar
     {
-        public ulong Count { 
-            get => ReadUInt64(Address + 0x18) ?? 0; 
-        }
-        
         public IEnumerable<(PyObject key, PyObject value)> Items 
         { 
             get => GetItems(); 
@@ -98,7 +94,7 @@ namespace EveAutomation.memory.python.type
                 yield break;
 
             var reader = new BinaryReader(new MemoryStream(content));
-            for (uint i = 0, u = 0; i <= Mask && u < Count; i++)
+            for (uint i = 0, u = 0; i <= Mask && u < Length; i++)
             {
                 var entry = ReadEntry(ref reader);
                 if (entry.GetState() == PyDictEntry.State.Active && entry.key != null) // Sometimes I hate VS2019
@@ -115,7 +111,7 @@ namespace EveAutomation.memory.python.type
 
         public override string ToString()
         {
-            return $"dict<0x{Address:X}> {Count} entries";
+            return $"dict<0x{Address:X}> {Length} entries";
         }
 
     }
