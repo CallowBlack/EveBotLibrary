@@ -89,7 +89,6 @@ namespace EveAutomation.memory.python.type
             if (!tableAddr.HasValue)
                 throw new MemberAccessException($"Failed gain access to dict table address. Dict address: {Address:X}");
 
-            var content = ReadBytes(tableAddr.Value, Mask * 0x18);
             var content = ReadBytes(tableAddr.Value, (Mask + 1) * 0x18);
             if (content == null)
                 yield break;
