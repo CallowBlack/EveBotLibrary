@@ -19,7 +19,8 @@ namespace EveAutomation.memory.python
             { "bool",       address => new PyBool(address) },
             { "float",      address => new PyFloat(address) },
             { "int",        address => new PyInt(address) },
-            { "list",       address => new PyList(address) }
+            { "list",       address => new PyList(address) },
+            { "tuple",      address => new PyTuple(address) },
         };
 
         public static PyObject? CreateObject(ulong address)

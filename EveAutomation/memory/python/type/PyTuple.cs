@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    internal class PyTuple : PyObjectVar
+    public class PyTuple : PyObjectVar
     {
         public IEnumerable<PyObject> Items {
             get
