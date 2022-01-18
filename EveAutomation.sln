@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.32014.148
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EveAutomation", "EveAutomation\EveAutomation.csproj", "{3B03563D-2E6F-4BF9-A6BB-2903AE1022B2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EveAutomation", "EveAutomation\EveAutomation.csproj", "{3B03563D-2E6F-4BF9-A6BB-2903AE1022B2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Py2ObjectViewer", "Py2ObjectViewer\Py2ObjectViewer.csproj", "{6EC3488E-B3F6-4B98-A80A-AFD94E05613A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{3B03563D-2E6F-4BF9-A6BB-2903AE1022B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3B03563D-2E6F-4BF9-A6BB-2903AE1022B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3B03563D-2E6F-4BF9-A6BB-2903AE1022B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6EC3488E-B3F6-4B98-A80A-AFD94E05613A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6EC3488E-B3F6-4B98-A80A-AFD94E05613A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6EC3488E-B3F6-4B98-A80A-AFD94E05613A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6EC3488E-B3F6-4B98-A80A-AFD94E05613A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
