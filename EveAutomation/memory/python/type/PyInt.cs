@@ -8,7 +8,7 @@ namespace EveAutomation.memory.python.type
 {
     public class PyInt : PyObject
     {
-        public ulong Value { get => ReadUInt64(Address + 0x10) ?? 0; }
+        public int Value { get => ReadInt32(Address + 0x10) ?? 0; }
         public PyInt(ulong address) : base(address, 0x18) { }
         public override string ToString()
         {
