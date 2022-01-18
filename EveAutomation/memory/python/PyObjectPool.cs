@@ -30,11 +30,16 @@ namespace EveAutomation.memory.python
             return _objects.Values.ToList();
         }
 
-        public static void ScanProcessMemory()
+
+        public static void ScanProcessMemory(IEnumerable<string>? typeNames = null, bool contains = false)
         {
+            HashSet<string>? names = !contains && typeNames != null ? new HashSet<string>(typeNames) : null;
+
             // Clear all data what was found ago.
             _objects.Clear();
 
+            // Skip buildin types for increase performance
+            var buildinTypes = new HashSet<string> { "object", "NoneType", "int", "long", "string", "unicode", "dict", "list", "tuple", "weakref", "bool", "float", "function", "type" };
             if (!ScanForgarbageCollector() || _garbageCollector == null) {
                 Console.WriteLine("Failed to find garbage collector.");
                 return;
@@ -46,10 +51,25 @@ namespace EveAutomation.memory.python
                 if (_objects.ContainsKey(address))
                     continue;
 
-                var newObject = PyObjectTypeDeterminer.CreateObject(address);
-                if (newObject == null)
+                var tn = PyObjectTypeDeterminer.GetType(address);
+                if (tn == null)
+                    continue;
+                
+                if (buildinTypes.Contains(tn))
                     continue;
 
+                if (typeNames != null)
+                {
+                    if (contains && !typeNames.Any(x => tn.Contains(x)))
+                        continue;
+
+                    if (!contains && names != null && !names.Contains(tn))
+                        continue;
+                }
+
+                var newObject = PyObjectTypeDeterminer.CreateObject(address);
+                if (newObject == null || newObject.Type.DictOffset == 0)
+                    continue;
                 
                 _objects.Add(address, newObject);
             }

@@ -41,7 +41,7 @@ namespace EveAutomation.memory.python
             _typeConstructors[type] = constructor;
         }
 
-        private static string? GetType(ulong address)
+        public static string? GetType(ulong address)
         {
             var typePtr = ProcessMemory.Instance.ReadUInt64(address + 0x8);
             if (!typePtr.HasValue) return null;
