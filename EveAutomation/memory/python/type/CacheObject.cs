@@ -68,12 +68,13 @@ namespace EveAutomation.memory.python.type
             return str;
         }
 
-        public void Update(bool forced = false, bool deep = false, HashSet<CachebleObject>? visited = null)
+        public async void Update(bool forced = false, bool deep = false, HashSet<CachebleObject>? visited = null)
         {
             if (forced && _updatePeriod == 0)
                 UpdateCache(forced);
 
             UpdateObject(deep, visited ?? (deep ? new() : null));
+            await Task.Yield();
         }
 
         protected virtual bool UpdateObject(bool deep, HashSet<CachebleObject>? visited = null)

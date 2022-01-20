@@ -36,7 +36,11 @@ namespace EveAutomation.memory.python.type
         {
             var bytes = ReadBytes(Address + 0x10, 10);
             var newValue = BitConverter.ToDouble(bytes);
-            if (_value.HasValue && newValue != _value)
+
+            var changed = _value.HasValue && _value != newValue;
+            _value = newValue;
+
+            if (changed)
                 ValueChanged?.Invoke(new ValueChangedArgs(this));
             _value = newValue;
         }

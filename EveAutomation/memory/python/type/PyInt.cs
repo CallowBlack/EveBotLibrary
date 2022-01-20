@@ -33,9 +33,12 @@ namespace EveAutomation.memory.python.type
         private void UpdateValue()
         {
             var newValue = ReadInt32(Address + 0x10) ?? 0;
-            if (_value.HasValue && newValue != _value)
-                ValueChanged?.Invoke(new ValueChangedArgs(this));
+            var changed = _value.HasValue && _value != newValue;
             _value = newValue;
+
+            if (changed)
+                ValueChanged?.Invoke(new ValueChangedArgs(this));
+            
         }
 
         public override string ToString()

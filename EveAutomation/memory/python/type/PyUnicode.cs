@@ -31,11 +31,8 @@ namespace EveAutomation.memory.python.type
 
         private bool UpdateValue()
         {
-            if (Length > 0x1000)
-                throw new Exception($"Unicode string length to long. Addr: 0x{Address:X}; Length: {Length}");
-
             var unicodeStringPtr = ReadUInt64(Address + 0x18);
-            if (!unicodeStringPtr.HasValue)
+            if (Length > 0x1000 || !unicodeStringPtr.HasValue)
             {
                 NotifyValueRemoved();
                 return false;
@@ -44,8 +41,10 @@ namespace EveAutomation.memory.python.type
             var byteLength = Length * 2;
             var rawContent = ReadBytes(unicodeStringPtr.Value, byteLength);
             if (rawContent == null || rawContent.Length < (int)byteLength)
-                throw new Exception($"Failed to read unicode string content. Obj: 0x{Address:X}; Content: 0x{unicodeStringPtr:X}; " +
-                    $"Length: {Length}");
+            {
+                NotifyValueRemoved();
+                return false;
+            }
 
             var newValue = Encoding.Unicode.GetString(rawContent, 0, (int)byteLength);
             _value = newValue;
