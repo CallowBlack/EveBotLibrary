@@ -24,8 +24,8 @@
                   VirtualizingPanel.IsVirtualizing="True"
                   BorderThickness="1">
             <TreeView.Resources>
-                <HierarchicalDataTemplate DataType="{x:Type local:PyObjectCollectionWrapper}"
-                                  ItemsSource="{Binding Converter={StaticResource collectionInitializer}, Path=Wrappers}">
+                <HierarchicalDataTemplate DataType="{x:Type local:PyObjectWrapper}"
+                                  ItemsSource="{Binding Wrappers}">
                     <Grid>
 
                         <Grid.ColumnDefinitions>
@@ -37,44 +37,11 @@
 
                         <TextBlock FontFamily="Courier New" Text="{Binding Origin.Address, StringFormat={}0x{0:X16}}" Grid.Column="0" Margin="0, 0, 15, 0"/>
                         <TextBlock FontFamily="Courier New" Text="{Binding Key}" Grid.Column="1" Margin="0, 0, 15, 0"/>
-                        <TextBlock FontFamily="Courier New" Text="{Binding Converter={StaticResource objectConverterToString}, Path=Origin}" Margin="0, 0, 15, 0" Grid.Column="2"/>
+                        <TextBlock FontFamily="Courier New" Text="{Binding Presentation}" Margin="0, 0, 15, 0" Grid.Column="2"/>
                         <TextBlock FontFamily="Courier New" Text="{Binding Origin.Type.Name}" Grid.Column="3" Margin="0, 0, 15, 0"/>
                     </Grid>
                 </HierarchicalDataTemplate>
 
-                <HierarchicalDataTemplate DataType="{x:Type local:PyKeyValueWrapper}" 
-                                          ItemsSource="{Binding Converter={StaticResource collectionInitializer}, Path=Value}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock FontFamily="Courier New" Text="{Binding Value.Origin.Address, StringFormat={}0x{0:X16}}" Grid.Column="0" Margin="0, 0, 15, 0"/>
-                        <TextBlock FontFamily="Courier New" Text="{Binding Key}" Grid.Column="1" Margin="0, 0, 15, 0"/>
-                        <TextBlock FontFamily="Courier New" Text="{Binding Converter={StaticResource objectConverterToString}, Path=Value.Origin}" Margin="0, 0, 15, 0" Grid.Column="2"/>
-                        <TextBlock FontFamily="Courier New" Text="{Binding Value.Origin.Name}" Grid.Column="3" Margin="0, 0, 15, 0"/>
-                    </Grid>
-                </HierarchicalDataTemplate>
-
-                <DataTemplate DataType="{x:Type local:PyObjectValueWrapper}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock FontFamily="Courier New" Text="{Binding Origin.Address, StringFormat={}0x{0:X16}}" Grid.Column="0" Margin="0, 0, 15, 0"/>
-                        <TextBlock FontFamily="Courier New" Text="{Binding Key}" Grid.Column="1" Margin="0, 0, 15, 0"/>
-                        <TextBlock FontFamily="Courier New" Text="{Binding Converter={StaticResource objectConverterToString}, Path=Origin}" Margin="0, 0, 15, 0" Grid.Column="2"/>
-                        <TextBlock FontFamily="Courier New" Text="{Binding Origin.Type.Name}" Grid.Column="3" Margin="0, 0, 15, 0"/>
-                    </Grid>
-                </DataTemplate>
-                
             </TreeView.Resources>
         </TreeView>
     </DockPanel>
