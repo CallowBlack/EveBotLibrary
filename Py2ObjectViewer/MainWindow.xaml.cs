@@ -33,40 +33,76 @@ namespace Py2ObjectViewer
             InitializeComponent();
             EveAutomation.memory.ProcessMemory.Open("exefile");
             EveAutomation.memory.eve.TypeLoader.Initialize();
-            PyObjectPool.ScanProcessMemory(new List<String>() { "UIRoot" }, true);
-            PyObjects = new ObservableCollection<KeyValue>(PyObjectPool.GetObjects().Select(obj => new KeyValue($"object<{obj.Type.Name}>", obj)));
+            SearchItems("UIRoot", false);
             DataContext = this;
             SearchText = "";
+            DoUpdate();
+        }
+
+        public async void DoUpdate()
+        {
+            while (true)
+            {
+                DeepUpdate();
+                await Task.Delay(1000);
+            }   
+        }
+        
+        public void DeepUpdate()
+        {
+            foreach (var item in PyObjects)
+                item.Object.Update(true, true);
+        }
+
+        public void SearchItems(string name, bool contains = true)
+        {
+            PyObjectPool.ScanProcessMemory(new List<String>() { name }, contains);
+            PyObjects = new ObservableCollection<PyObjectNotify>(PyObjectPool.GetObjects().Select(obj => new PyObjectNotify(obj)));
         }
 
         public string SearchText { get; set; }
 
-        public ObservableCollection<KeyValue> PyObjects { 
-            get => _pyObjects; 
+        public ObservableCollection<PyObjectNotify> PyObjects { 
+            get => _pyObjects ?? new(); 
             set
             {
                 _pyObjects = value;
                 NotifyPropertyChanged();
             }
         }
-        private ObservableCollection<KeyValue> _pyObjects;
+        private ObservableCollection<PyObjectNotify>? _pyObjects;
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
-        public void NotifyPropertyChanged([CallerMemberName] string propertyName = null)
+        public void NotifyPropertyChanged([CallerMemberName] string? propertyName = null)
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
-            if (handler != null)
-            {
-                handler(this, new PropertyChangedEventArgs(propertyName));
-            }
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            
-            PyObjectPool.ScanProcessMemory(new List<String>() { SearchText }, true);
-            PyObjects = new ObservableCollection<KeyValue>(PyObjectPool.GetObjects().Select(obj => new KeyValue($"object<{obj.Type.Name}>", obj)));
+            SearchItems(SearchText);
+        }
+    }
+
+    [ValueConversion(typeof(ObservableCollection<PyObjectNotify>), typeof(ObservableCollection<KeyValue>))]
+    public class PyObjectNotifyConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is ObservableCollection<PyObjectNotify> objs)
+            {
+                ObservableCollection<KeyValue> newItems = 
+                    new (objs.Select(obj => new KeyValue("object", obj.Object)));
+                return newItems;
+            }
+                
+            return new();
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
         }
     }
 
@@ -88,14 +124,14 @@ namespace Py2ObjectViewer
                     return ListConvert(_childrenObjects.Items);
                 return DictConvert(obj.Dict);
             }
-            return null;
+            return new();
         }
 
         private ObservableCollection<KeyValue> DictConvert(PyDict dict)
         {
             return new ObservableCollection<KeyValue>
                 (
-                    dict.Items.Select(item => new KeyValue((item.key is PyString ps) ? ps.Value : item.ToString(), item.value))
+                    dict.Items.Select(item => new KeyValue((item.Key is PyString ps) ? ps.Value : item.ToString(), item.Value))
                 );
         }
         private ObservableCollection<KeyValue> ListConvert(IEnumerable<PyObject> objects)
@@ -163,6 +199,23 @@ namespace Py2ObjectViewer
         {
             Key = key;
             Value = value;
+        }
+    }
+
+    public class PyObjectNotify : INotifyPropertyChanged
+    {
+        public PyObject Object { get; private set; }
+        public PyObjectNotify(PyObject obj)
+        {
+            Object = obj;
+            Object.FieldChanged += Object_MemberChanged;
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        private void Object_MemberChanged(FieldChangedArgs args)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
         }
     }
 }

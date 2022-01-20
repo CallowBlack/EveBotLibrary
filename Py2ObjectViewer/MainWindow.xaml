@@ -9,6 +9,7 @@
         Title="MainWindow" Height="450" Width="800">
     <Window.Resources>
         <local:PyObjectConverter x:Key="objectConverter"/>
+        <local:PyObjectNotifyConverter x:Key="objectNotifyConverter"/>
         <local:PyObjectToStringConverter x:Key="objectConverterToString"/>
         
         <HierarchicalDataTemplate x:Key="KeyValueTemplate" DataType="{x:Type local:KeyValue}"
@@ -38,7 +39,7 @@
         </StackPanel>
         
         <TreeView Name="objTree" 
-                  ItemsSource="{Binding Path=PyObjects}" 
+                  ItemsSource="{Binding Converter={StaticResource objectNotifyConverter}, Path=PyObjects}" 
                   ItemTemplate="{StaticResource KeyValueTemplate}"
                   VirtualizingPanel.IsVirtualizing="True"
                   BorderThickness="1"/>

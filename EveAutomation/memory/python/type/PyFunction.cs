@@ -29,7 +29,9 @@ namespace EveAutomation.memory.python.type
 
         private PyString? _nameObj;
 
-        public PyFunction(ulong address) : base(address, 0x40) { }
+        public PyFunction(ulong address) : base(address, 0x40) {
+            _updatePeriod = 0;
+        }
 
         public override string ToString()
         {

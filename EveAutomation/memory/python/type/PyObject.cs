@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static EveAutomation.memory.python.IValueChanged;
 
 namespace EveAutomation.memory.python.type
 {
-    public class PyObject : CachebleObject
+    public class PyObject : CachebleObject, IFieldChanged, IValueRemoved
     {     
         public PyType Type {
             get {
@@ -40,16 +41,27 @@ namespace EveAutomation.memory.python.type
         private PyType? _type;
         protected ulong typePtr = 0;
 
+        public event EventHandler? ValueRemoved;
+        public event IFieldChanged.FieldChangedHandler? FieldChanged;
+
         public PyDict? Dict {
             get
             {
+                if (_dict != null)
+                    return _dict;
+
                 var dictOffset = Type.DictOffset;
                 if (dictOffset == 0)
                     return null;
+
                 var dictPtr = ReadUInt64(Address + dictOffset);
-                return PyObjectPool.Get(dictPtr ?? 0) as PyDict;
+                _dict = PyObjectPool.Get(dictPtr ?? 0) as PyDict;
+                if (_dict != null)
+                    _dict.DictionaryChanged += OnDictChanged;
+                return _dict;
             } 
         }
+        private PyDict? _dict; 
 
         protected PyObject(ulong address, ulong size) : base(address, size) { }
 
@@ -61,6 +73,50 @@ namespace EveAutomation.memory.python.type
             return PyObjectPool.Get(valuePtr ?? 0);
         }
 
+        protected override bool UpdateObject(bool deep, HashSet<CachebleObject>? visited = null)
+        {
+            if (!base.UpdateObject(deep, visited))
+                return false;
+
+            if (typePtr != 0 && typePtr != ReadUInt64(Address + 0x8))
+            {
+                NotifyValueRemoved();
+                return false;
+            }
+
+            if (_dict != null && Type.DictOffset != 0 && _dict.Address != ReadUInt64(Address + Type.DictOffset))
+            {
+                NotifyValueRemoved();
+                return false;
+            }
+
+            if (deep && _dict != null)
+                _dict.Update(true, deep, visited);
+            
+            return true;
+        }
+
+        protected void OnDictChanged(CollectionChangedArgs<KeyValuePair<PyObject, PyObject>> args)
+        {
+            if (args.ChangedItems == null)
+                return;
+
+            foreach(var updatedItem in args.ChangedItems)
+            {
+                if (updatedItem.Key is PyString keyStr)
+                {
+                    var nextArgs = new FieldChangedArgs(this, keyStr.Value, args);
+                    if (!nextArgs.IsLoop)
+                        FieldChanged?.Invoke(nextArgs);
+                }
+            }
+        }
+
+        protected void NotifyValueRemoved()
+        {
+            ValueRemoved?.Invoke(this, new EventArgs());
+        }
+
         public override string ToString()
         {
             if (Type.Name == "NoneType")
@@ -68,5 +124,6 @@ namespace EveAutomation.memory.python.type
 
             return $"object<0x{Address:X}> with type {Type.Name}";
         }
+
     }
 }

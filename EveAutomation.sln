@@ -5,7 +5,12 @@ VisualStudioVersion = 17.0.32014.148
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EveAutomation", "EveAutomation\EveAutomation.csproj", "{3B03563D-2E6F-4BF9-A6BB-2903AE1022B2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Py2ObjectViewer", "Py2ObjectViewer\Py2ObjectViewer.csproj", "{6EC3488E-B3F6-4B98-A80A-AFD94E05613A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Py2ObjectViewer", "Py2ObjectViewer\Py2ObjectViewer.csproj", "{6EC3488E-B3F6-4B98-A80A-AFD94E05613A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E63C4FAB-39E0-4347-9B12-CC74ED1AE357}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -12,9 +12,6 @@ namespace EveAutomation.memory.python.type
 
         public ulong Size { get; private set; }
 
-        public bool IsValid { get; private set; }
-
-
         // If equals zero means that cache updated only once.
         protected long _updatePeriod = 1000; // In ms
 
@@ -38,6 +35,9 @@ namespace EveAutomation.memory.python.type
 
         public override byte[]? ReadBytes(ulong startAddress, ulong length)
         {
+            if (length > 0xFFFF)
+                return null;
+
             if (startAddress < Address || startAddress + length > Address + Size)
                 return ProcessMemory.Instance.ReadBytes(startAddress, length);
 
@@ -68,16 +68,21 @@ namespace EveAutomation.memory.python.type
             return str;
         }
 
-        public void Update(bool forced = false)
+        public void Update(bool forced = false, bool deep = false, HashSet<CachebleObject>? visited = null)
         {
             if (forced && _updatePeriod == 0)
                 UpdateCache(forced);
 
-            IsValid = UpdateValues();
+            UpdateObject(deep, visited ?? (deep ? new() : null));
         }
 
-        protected virtual bool UpdateValues()
+        protected virtual bool UpdateObject(bool deep, HashSet<CachebleObject>? visited = null)
         {
+            if (visited != null && visited.Contains(this))
+                return false;
+            
+            visited?.Add(this);
+            
             return true;
         }
 

@@ -6,10 +6,38 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    public class PyInt : PyObject
+    public class PyInt : PyObject, IValueChanged
     {
-        public int Value { get => ReadInt32(Address + 0x10) ?? 0; }
+        public int Value {
+            get
+            {
+                UpdateValue();
+                return _value ?? 0;
+            }
+        }
+        private int? _value;
+
+        public event IValueChanged.ValueChangedHandler? ValueChanged;
+
         public PyInt(ulong address) : base(address, 0x18) { }
+
+        protected override bool UpdateObject(bool deep, HashSet<CachebleObject>? visited = null)
+        {
+            if (!base.UpdateObject(deep, visited))
+                return false;
+
+            UpdateValue();
+            return true;
+        }
+
+        private void UpdateValue()
+        {
+            var newValue = ReadInt32(Address + 0x10) ?? 0;
+            if (_value.HasValue && newValue != _value)
+                ValueChanged?.Invoke(new ValueChangedArgs(this));
+            _value = newValue;
+        }
+
         public override string ToString()
         {
             return Value.ToString();
