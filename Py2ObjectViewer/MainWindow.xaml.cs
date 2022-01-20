@@ -3,6 +3,7 @@ using EveAutomation.memory.python;
 using EveAutomation.memory.python.type;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -45,32 +46,57 @@ namespace Py2ObjectViewer
             {
                 DeepUpdate();
                 await Task.Delay(1000);
-            }   
+            }
         }
-        
-        public void DeepUpdate()
+
+        public async void DeepUpdate()
         {
-            foreach (var item in PyObjects)
-                item.Object.Update(true, true);
+            UpdateCount = 0;
+            foreach (var item in PyObjectsWrapped)
+                if (item.Origin is PyObject pyObject)
+                    pyObject.Update(true, true);
         }
 
         public void SearchItems(string name, bool contains = true)
         {
             PyObjectPool.ScanProcessMemory(new List<String>() { name }, contains);
-            PyObjects = new ObservableCollection<PyObjectNotify>(PyObjectPool.GetObjects().Select(obj => new PyObjectNotify(obj)));
+            PyObjectsWrapped = new ObservableCollection<PyObjectCollectionWrapper>(PyObjectPool.GetObjects()
+                .Select(item => new PyObjectCollectionWrapper(item)));
+
+            foreach(var item in PyObjectPool.GetObjects())
+            {
+                item.FieldChanged += Item_FieldChanged;
+            }
+            foreach(var obj in PyObjectsWrapped)
+            {
+                obj.Load();
+            }
+        }
+
+        private void Item_FieldChanged(FieldChangedArgs args)
+        {
+            UpdateCount += 1;
         }
 
         public string SearchText { get; set; }
 
-        public ObservableCollection<PyObjectNotify> PyObjects { 
-            get => _pyObjects ?? new(); 
+        public ObservableCollection<PyObjectCollectionWrapper> PyObjectsWrapped {
+            get => _pyObjectWrapped;
             set
             {
-                _pyObjects = value;
+                _pyObjectWrapped = value;
                 NotifyPropertyChanged();
             }
         }
-        private ObservableCollection<PyObjectNotify>? _pyObjects;
+
+        public int UpdateCount { get => _updateCount;
+        set { _updateCount = value;
+                NotifyPropertyChanged();
+            }
+        }
+        private int _updateCount;
+
+        private ObservableCollection<PyObjectCollectionWrapper>? _pyObjectWrapped;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -85,19 +111,15 @@ namespace Py2ObjectViewer
         }
     }
 
-    [ValueConversion(typeof(ObservableCollection<PyObjectNotify>), typeof(ObservableCollection<KeyValue>))]
-    public class PyObjectNotifyConverter : IValueConverter
+    [ValueConversion(typeof(PyObjectCollectionWrapper), typeof(PyObjectCollectionWrapper))]
+    public class PyCollectionInitializerConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is ObservableCollection<PyObjectNotify> objs)
-            {
-                ObservableCollection<KeyValue> newItems = 
-                    new (objs.Select(obj => new KeyValue("object", obj.Object)));
-                return newItems;
-            }
-                
-            return new();
+            if (value is PyObjectCollectionWrapper collection)
+                collection.Load();
+
+            return value;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -106,66 +128,21 @@ namespace Py2ObjectViewer
         }
     }
 
-    [ValueConversion(typeof(PyObject), typeof(ObservableCollection<KeyValue>))]
-    public class PyObjectConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is PyDict dict)
-                return DictConvert(dict);
-            else if (value is PyList list)
-                return ListConvert(list.Items);
-            else if (value is PyTuple tuple)
-                return ListConvert(tuple.Items);
-            else if (value is PyObject obj && obj.Dict != null)
-            {
-                var _childrenObjects = obj.Dict.Get("_childrenObjects") as PyList;
-                if (_childrenObjects != null)
-                    return ListConvert(_childrenObjects.Items);
-                return DictConvert(obj.Dict);
-            }
-            return new();
-        }
-
-        private ObservableCollection<KeyValue> DictConvert(PyDict dict)
-        {
-            return new ObservableCollection<KeyValue>
-                (
-                    dict.Items.Select(item => new KeyValue((item.Key is PyString ps) ? ps.Value : item.ToString(), item.Value))
-                );
-        }
-        private ObservableCollection<KeyValue> ListConvert(IEnumerable<PyObject> objects)
-        {
-            uint index = 0;
-            var result = new ObservableCollection<KeyValue>();
-            foreach (var item in objects)
-            {
-                result.Add(new KeyValue($"[{index}]", item));
-                index++;
-            }
-            return result;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            throw new NotSupportedException();
-        }
-    }
-
-    [ValueConversion(typeof(PyObject), typeof(string))]
+    [ValueConversion(typeof(IWrapper), typeof(string))]
     public class PyObjectToStringConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is PyDict dict)
+            var origin = value;
+            if (origin is PyDict dict)
                 return $"dict[{dict.Length}]";
-            else if (value is PyList list)
+            else if (origin is PyList list)
                 return $"list[{list.Length}]";
-            else if (value is PyTuple tuple)
+            else if (origin is PyTuple tuple)
                 return $"tuple[{tuple.Length}]";
-            else if (value is PyString || value is PyUnicode || value is PyInt || value is PyFloat || value is PyBool)
-                return value?.ToString() ?? "<error>";
-            else if (value is PyObject obj) {
+            else if (origin is PyString || origin is PyUnicode || origin is PyInt || origin is PyFloat || origin is PyBool)
+                return origin?.ToString() ?? "<error>";
+            else if (origin is PyObject obj) {
                 if (obj.Type.Name == "NoneType")
                     return "None";
 
@@ -193,29 +170,204 @@ namespace Py2ObjectViewer
     public class KeyValue
     {
         public string Key { get; set; }
-        public PyObject Value { get; set; }
+        public IWrapper Value { get; set; }
 
-        public KeyValue(string key, PyObject value)
+        public KeyValue(string key, IWrapper value)
         {
             Key = key;
             Value = value;
         }
     }
 
-    public class PyObjectNotify : INotifyPropertyChanged
+    public interface IWrapper
     {
-        public PyObject Object { get; private set; }
-        public PyObjectNotify(PyObject obj)
-        {
-            Object = obj;
-            Object.FieldChanged += Object_MemberChanged;
-        }
+        public object Origin { get; set; }
+
+        public string Key { get; set; }
+    }
+
+
+    public static class WrapperPool {
+        public static Dictionary<object, IWrapper> wrappers = new();
+    }
+    public class PyKeyValueWrapper : INotifyPropertyChanged, IWrapper
+    {
+        public object Origin { get; set; }
+
+        public PyObject Key { get; private set; }
+
+        public IWrapper Value { get; private set; }
+        string IWrapper.Key { get => Key.ToString(); set { } }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        private void Object_MemberChanged(FieldChangedArgs args)
+        public PyKeyValueWrapper(KeyValuePair<PyObject, PyObject> pair)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
+            Origin = pair;
+
+            Key = pair.Key;
+
+            if (WrapperPool.wrappers.ContainsKey(pair.Value))
+            {
+                Value = WrapperPool.wrappers[pair.Value];
+            }
+            else if (pair.Value is IValueChanged valueChanged)
+            {
+                Value = new PyObjectValueWrapper(valueChanged);
+                valueChanged.ValueChanged += ValueChanged_ValueChanged;
+            }
+            else if (pair.Value is PyList pyList)
+            {
+                Value = new PyObjectCollectionWrapper(pyList);
+            }
+            else
+            {
+                Value = new PyObjectCollectionWrapper(pair.Value);
+            }
+        }
+
+        private void ValueChanged_ValueChanged(ValueChangedArgs args)
+        {
+            PropertyChanged?.Invoke(this, new(null));
+        }
+    }
+
+    public class PyObjectValueWrapper : INotifyPropertyChanged, IWrapper
+    {
+        public object Origin { get; set; }
+
+        public string Key { get; set; }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public PyObjectValueWrapper(IValueChanged obj, string? key = null)
+        {
+            Origin = obj;
+            Key = key ?? "<NoName>";
+            obj.ValueChanged += OnValueChanged;
+        }
+
+        private void OnValueChanged(ValueChangedArgs args)
+        {
+            PropertyChanged?.Invoke(this, new(""));
+        }
+    }
+
+    public class PyObjectCollectionWrapper : ObservableCollection<IWrapper>, IWrapper
+    {
+        public object Origin { get; set; }
+
+        public string Key { get; set; }
+
+        public ObservableCollection<IWrapper> Wrappers { get => this; }
+
+
+        private bool _isLoaded = false;
+
+        public void Load()
+        {
+            if (_isLoaded)
+                return;
+            WrapperPool.wrappers[Origin] = this;
+            if (Origin is PyList list)
+            {
+                AddItems(new List<PyObject>(list.Items));
+                list.ListChanged += OnListChanged;
+            }
+            else if (Origin is PyTuple tuple)
+                AddItems(tuple.Items);
+            else if (Origin is PyDict dict)
+            {
+                AddItems(dict.Items);
+                dict.DictionaryChanged += OnDictionaryChanged;
+            }
+            else if (Origin is PyObject obj && obj.Dict != null)
+            {
+                AddItems(obj.Dict.Items);
+                obj.Dict.DictionaryChanged += OnDictionaryChanged;
+            }
+            _isLoaded = true;
+        }
+
+        public PyObjectCollectionWrapper(PyObject pyObject, string? name = null) {
+            Key = name ?? "<NoName>";
+            Origin = pyObject;
+        }
+
+        public void AddItems(IEnumerable<PyObject> items)
+        {
+            var i = 0;
+            foreach (var item in items)
+            {
+                var currKey = $"[{i}]";
+                if (WrapperPool.wrappers.ContainsKey(item))
+                {
+                    Add(WrapperPool.wrappers[item]);
+                }
+                else if (item is IValueChanged vc)
+                {
+                    Add(new PyObjectValueWrapper(vc, currKey));
+                }
+                else
+                {
+                    Add(new PyObjectCollectionWrapper(item, currKey));
+                }
+                i++;
+            }
+        }
+
+        public void AddItems(IEnumerable<KeyValuePair<PyObject, PyObject>> items)
+        {
+            foreach (var item in items)
+            {
+                if (WrapperPool.wrappers.ContainsKey(item))
+                {
+                    Add(WrapperPool.wrappers[item]);
+                }
+                else
+                {
+                    Add(new PyKeyValueWrapper(item));
+                }
+            }
+        }
+
+        public void RemoveItems(IEnumerable items)
+        {
+            foreach (var item in items)
+            {
+                try
+                {
+                    var itemToRemove = this.First(value => value.Origin == item);
+                    Remove(itemToRemove);
+                }
+                catch (InvalidOperationException) { }
+            }
+        }
+
+        private void OnListChanged(CollectionChangedArgs<PyObject> args)
+        {
+            if (args.AddedItems != null)
+            {
+                AddItems(args.AddedItems);
+            }
+
+            if (args.RemovedItems != null)
+            {
+                RemoveItems(args.RemovedItems);
+            }
+        }
+
+        private void OnDictionaryChanged(CollectionChangedArgs<KeyValuePair<PyObject, PyObject>> args)
+        {
+            if (args.AddedItems != null)
+            {
+                AddItems(args.AddedItems);
+            }
+
+            if (args.RemovedItems != null)
+            {
+                RemoveItems(args.RemovedItems);
+            }
         }
     }
 }

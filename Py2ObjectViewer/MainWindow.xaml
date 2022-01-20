@@ -3,45 +3,79 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Py2ObjectViewer"
-        xmlns:pytype="clr-namespace:EveAutomation.memory.python.type;assembly=EveAutomation"
+        xmlns:local="clr-namespace:Py2ObjectViewer" d:DataContext="{d:DesignInstance Type=local:PyObjectCollectionWrapper}"
+        x:Name="UI"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Window.Resources>
-        <local:PyObjectConverter x:Key="objectConverter"/>
-        <local:PyObjectNotifyConverter x:Key="objectNotifyConverter"/>
         <local:PyObjectToStringConverter x:Key="objectConverterToString"/>
-        
-        <HierarchicalDataTemplate x:Key="KeyValueTemplate" DataType="{x:Type local:KeyValue}"
-                                  ItemsSource="{Binding Converter={StaticResource objectConverter}, Path=Value}">
-            <Grid>
-                
-                
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <TextBlock FontFamily="Courier New" Text="{Binding Value.Address, StringFormat={}0x{0:X16}}" Grid.Column="0" Margin="0, 0, 15, 0"/>
-                <TextBlock FontFamily="Courier New" Text="{Binding Key}" Grid.Column="1" Margin="0, 0, 15, 0"/>
-                <TextBlock FontFamily="Courier New" Text="{Binding Converter={StaticResource objectConverterToString}, Path=Value}" Margin="0, 0, 15, 0" Grid.Column="2"/>
-                <TextBlock FontFamily="Courier New" Text="{Binding Value.Type.Name}" Grid.Column="3" Margin="0, 0, 15, 0"/>
-            </Grid>
-        </HierarchicalDataTemplate>
+        <local:PyCollectionInitializerConverter x:Key="collectionInitializer"/>
     </Window.Resources>
 
     <DockPanel Margin="5">
         <StackPanel DockPanel.Dock="Top" HorizontalAlignment="Left" Margin="0, 0, 0, 5" Orientation="Horizontal">
             <TextBox Text="{Binding SearchText}" Width="200" Margin="0, 0, 5, 0"/>
             <Button Click="Button_Click" Width="80">Search</Button>
+            <TextBlock Text="{Binding UpdateCount}" Width="200" HorizontalAlignment="Center"/>
         </StackPanel>
-        
+
         <TreeView Name="objTree" 
-                  ItemsSource="{Binding Converter={StaticResource objectNotifyConverter}, Path=PyObjects}" 
-                  ItemTemplate="{StaticResource KeyValueTemplate}"
+                  ItemsSource="{Binding ElementName=UI, Path=PyObjectsWrapped}" 
                   VirtualizingPanel.IsVirtualizing="True"
-                  BorderThickness="1"/>
+                  BorderThickness="1">
+            <TreeView.Resources>
+                <HierarchicalDataTemplate DataType="{x:Type local:PyObjectCollectionWrapper}"
+                                  ItemsSource="{Binding Converter={StaticResource collectionInitializer}, Path=Wrappers}">
+                    <Grid>
+
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock FontFamily="Courier New" Text="{Binding Origin.Address, StringFormat={}0x{0:X16}}" Grid.Column="0" Margin="0, 0, 15, 0"/>
+                        <TextBlock FontFamily="Courier New" Text="{Binding Key}" Grid.Column="1" Margin="0, 0, 15, 0"/>
+                        <TextBlock FontFamily="Courier New" Text="{Binding Converter={StaticResource objectConverterToString}, Path=Origin}" Margin="0, 0, 15, 0" Grid.Column="2"/>
+                        <TextBlock FontFamily="Courier New" Text="{Binding Origin.Type.Name}" Grid.Column="3" Margin="0, 0, 15, 0"/>
+                    </Grid>
+                </HierarchicalDataTemplate>
+
+                <HierarchicalDataTemplate DataType="{x:Type local:PyKeyValueWrapper}" 
+                                          ItemsSource="{Binding Converter={StaticResource collectionInitializer}, Path=Value}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock FontFamily="Courier New" Text="{Binding Value.Origin.Address, StringFormat={}0x{0:X16}}" Grid.Column="0" Margin="0, 0, 15, 0"/>
+                        <TextBlock FontFamily="Courier New" Text="{Binding Key}" Grid.Column="1" Margin="0, 0, 15, 0"/>
+                        <TextBlock FontFamily="Courier New" Text="{Binding Converter={StaticResource objectConverterToString}, Path=Value.Origin}" Margin="0, 0, 15, 0" Grid.Column="2"/>
+                        <TextBlock FontFamily="Courier New" Text="{Binding Value.Origin.Name}" Grid.Column="3" Margin="0, 0, 15, 0"/>
+                    </Grid>
+                </HierarchicalDataTemplate>
+
+                <DataTemplate DataType="{x:Type local:PyObjectValueWrapper}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock FontFamily="Courier New" Text="{Binding Origin.Address, StringFormat={}0x{0:X16}}" Grid.Column="0" Margin="0, 0, 15, 0"/>
+                        <TextBlock FontFamily="Courier New" Text="{Binding Key}" Grid.Column="1" Margin="0, 0, 15, 0"/>
+                        <TextBlock FontFamily="Courier New" Text="{Binding Converter={StaticResource objectConverterToString}, Path=Origin}" Margin="0, 0, 15, 0" Grid.Column="2"/>
+                        <TextBlock FontFamily="Courier New" Text="{Binding Origin.Type.Name}" Grid.Column="3" Margin="0, 0, 15, 0"/>
+                    </Grid>
+                </DataTemplate>
+                
+            </TreeView.Resources>
+        </TreeView>
     </DockPanel>
 </Window>
