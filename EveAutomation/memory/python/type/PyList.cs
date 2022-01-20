@@ -47,6 +47,16 @@ namespace EveAutomation.memory.python.type
             if (isInitialize)
                 _items = new();
 
+            if (Length == 0)
+            {
+                if (_items.Count != 0)
+                {
+                    ListChanged?.Invoke(new(this, null, _items, null));
+                    _items.Clear();
+                }
+                return true;
+            }
+
             var itemsPtr = ReadUInt64(Address + 0x18);
             if (!itemsPtr.HasValue)
             {
