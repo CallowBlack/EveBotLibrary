@@ -95,8 +95,8 @@ namespace EveAutomation.memory.python.type
 
         private bool UpdateDictionary()
         {
-            var isInitialize = _items == null;
-            if (isInitialize)
+            var isInitialized = _items != null;
+            if (!isInitialized)
                 _items = new();
 
             var tableAddr = ReadUInt64(Address + 0x28);
@@ -174,7 +174,7 @@ namespace EveAutomation.memory.python.type
                 AddEventHandlers(addedItem.Key, addedItem.Value);
             }
             
-            if (!isInitialize)
+            if (isInitialized)
                 DictionaryChanged?.Invoke(new(this, added, removed, updated));
 
             return true;
@@ -195,7 +195,7 @@ namespace EveAutomation.memory.python.type
 
             if (!deep)
                 return true;
-
+            
             foreach (var item in _items)
             {
                 item.Key.Update(true, deep, visited);

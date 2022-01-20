@@ -21,7 +21,6 @@ namespace EveAutomation.memory.python.type
         public PyString(ulong address) : base(address, 0x18) 
         {
             _updatePeriod = 0;
-            SetSize(0x20 + Length + 1);
         }
 
         protected override bool UpdateObject(bool deep, HashSet<CachebleObject>? visited = null)
@@ -37,15 +36,17 @@ namespace EveAutomation.memory.python.type
 
         private bool UpdateValue()
         {
+            if (_value != null)
+                return true;
+
             var newValue = ReadString(Address + 0x20, (uint)(Length + 1)) ?? "";
-            if (_value != null && newValue != _value)
+            if (newValue == null)
             {
                 NotifyValueRemoved();
                 return false;
             }
 
-            if (_value == null)
-                _value = newValue;
+            _value = newValue;
             return true;
         }
 

@@ -90,8 +90,8 @@ namespace EveAutomation.memory.python.type
                 return false;
             }
 
-            if (deep && _dict != null)
-                _dict.Update(true, deep, visited);
+            if (deep && Dict != null)
+                Dict.Update(true, deep, visited);
             
             return true;
         }

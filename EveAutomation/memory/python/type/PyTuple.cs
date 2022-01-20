@@ -6,28 +6,31 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    public class PyTuple : PyObjectVar
+    public class PyTuple : PyCollection
     {
-        public IEnumerable<PyObject> Items {
-            get
+        protected override bool UpdateItems()
+        {
+            if (_isInitialized) return true;
+
+            var content = ReadBytes(Address + 0x18, Count * 0x8);
+            if (content == null)
+                return false;
+
+            var reader = new BinaryReader(new MemoryStream(content));
+            for (uint i = 0; i < Count; i++)
             {
-                for (uint i = 0; i < Length; i++)
-                {
-                    var ptr = ReadUInt64(Address + 0x18 + i * 0x8);
-                    if (!ptr.HasValue) continue;
-
-                    var obj = PyObjectPool.Get(ptr.Value);
-                    if (obj == null) continue;
-
-                    yield return obj;
-                }
+                var ptr = reader.ReadUInt64();
+                var obj = PyObjectPool.Get(ptr);
+                if (obj == null)
+                    return false;
+                _items.Add(obj);
             }
+            return true;
         }
 
         public PyTuple(ulong address) : base(address, 0x18)
         {
             _updatePeriod = 0;
-            SetSize(0x18 + Length * 0x8);
         }
     }
 }
