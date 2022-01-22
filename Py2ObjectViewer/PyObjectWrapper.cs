@@ -13,10 +13,9 @@ namespace Py2ObjectViewer
 {
     public class PyObjectWrapper : INotifyPropertyChanged
     {
-        public static readonly HashSet<PyObject> loadedObjects = new();
-
-        public PyObject Origin { get; private set; }
+        public PyObject Origin { get; protected set; }
         public string Key { get; protected set; }
+        public PyObject? KeyObject { get; protected set; }
 
         public string Presentation { get => GetPresentation(); }
 
@@ -38,12 +37,17 @@ namespace Py2ObjectViewer
             Key = key ?? "object";
             Origin = pyObject;
             
-            if (Origin is IValueChanged vc)
+            if (Origin is INotifyValueChanged vc)
             {
                 vc.ValueChanged += OnValueChanged;
             }
 
-            loadedObjects.Add(Origin);
+            PyLoadedObjects.LoadObject(Origin);
+        }
+
+        ~PyObjectWrapper()
+        {
+            PyLoadedObjects.UnloadObject(Origin);
         }
 
         private string GetPresentation()
@@ -56,6 +60,14 @@ namespace Py2ObjectViewer
                 return $"tuple[{tuple.Count}]";
             else if (Origin is PyString || Origin is PyUnicode || Origin is PyInt || Origin is PyFloat || Origin is PyBool)
                 return Origin?.ToString() ?? "<error>";
+            else if (Origin is PyClass cls)
+                return $"class '{cls.Name}'";
+            else if (Origin is PyInstance instance)
+            {
+                if (instance.Class == null)
+                    return $"inst of undefined";
+                return $"inst of class '{instance.Class.Name}'";
+            }   
             else if (Origin is PyObject obj)
             {
                 if (obj.Type.Name == "NoneType")
@@ -77,7 +89,31 @@ namespace Py2ObjectViewer
 
         private IEnumerable<PyObjectWrapper> LoadWrappers()
         {
-            if (Origin is IValueChanged)
+
+            if (Origin is PyClass cls)
+            {
+                if (cls.Bases != null) yield return new PyObjectWrapper(cls.Bases, "Bases");
+                if (cls.Content != null) yield return new PyObjectWrapper(cls.Content, "Content");
+
+                yield break;
+            }
+
+            if (Origin is PyInstance instance)
+            {
+                if (instance.Class != null) yield return new PyObjectWrapper(instance.Class, "Class");
+                if (instance.Content != null) yield return new PyObjectWrapper(instance.Content, "Content");
+
+                yield break;
+            }
+
+            if (KeyObject != null && KeyObject is not PyString)
+            {
+                yield return new PyObjectWrapper(KeyObject, "Key");
+                yield return new PyObjectWrapper(Origin, "Value");
+                yield break;
+            }
+
+            if (Origin is INotifyValueChanged)
                 yield break;
 
             if (Origin is PyCollection list)
@@ -97,7 +133,13 @@ namespace Py2ObjectViewer
 
                 foreach (var item in dict.Items)
                 {
-                    yield return new PyObjectWrapper(item.Value, item.Key.ToString());
+                    PyObjectWrapper wrapper;
+                    if (item.Value.Dict != null && item.Value.Dict.Get("_childrenObjects") is PyList _childrenObjects)
+                        wrapper = new PyObjectWrapper(_childrenObjects, item.Key.ToString());
+                    else
+                        wrapper = new PyObjectWrapper(item.Value, item.Key.ToString());
+                    wrapper.KeyObject = item.Key;
+                    yield return wrapper;
                 }
             }
 
@@ -120,50 +162,94 @@ namespace Py2ObjectViewer
             }
         }
 
-        private void OnValueChanged(ValueChangedArgs args)
+        private void OnValueChanged(object? sender, ValueChangedEventArgs args)
         {
             PropertyChanged?.Invoke(this, new(null));
         }
 
-        private void OnDictChanged(CollectionChangedArgs<KeyValuePair<PyObject, PyObject>> args)
+        private void OnDictChanged(object? sender, DictionaryChangedEventArgs args)
         {
-            if (args.AddedItems != null) AddItems(args.AddedItems.Select(pair => pair.Value));
+            if (args.ChangeType != CollectionChangeType.ContainerChanged)
+                return;
 
-            if (args.RemovedItems != null) RemoveItems(args.RemovedItems.Select(pair => pair.Value));
-        }
+            if (args.RemovedItems != null) RemoveItems(args.RemovedItems.Select(pair => pair.Key).ToList(), true);
 
-        private void OnListChanged(CollectionChangedArgs<PyObject> args)
-        {
             if (args.AddedItems != null) AddItems(args.AddedItems);
 
-            if (args.RemovedItems != null) RemoveItems(args.RemovedItems);
+            if (args.ChangedValues != null) ChangeObjects(args.ChangedValues);
+
+            PropertyChanged?.Invoke(this, new(null));
         }
 
-        private void RemoveItems(IEnumerable<PyObject> pyObjects)
+        private void OnListChanged(object? sender, EveAutomation.memory.python.ListChangedEventArgs args)
         {
-            var indexes = FindIndexes(pyObjects);
+            if (args.ChangeType != CollectionChangeType.ContainerChanged)
+                return;
+
+            if (args.RemovedItems != null) RemoveItems(args.RemovedItems);
+
+            if (args.AddedItems != null) AddItems(args.AddedItems);
+
+            PropertyChanged?.Invoke(this, new(null));
+
+        }
+
+        private void ChangeObjects(List<(PyObject key, PyObject oldItem, PyObject newItem)> items)
+        {
+            var dict = items.ToDictionary(entry => entry.key, entry => entry.newItem);
+            for (int i = 0; i < Wrappers.Count; i++)
+            {
+                var wrapper = Wrappers[i];
+                if (wrapper.KeyObject == null || !dict.ContainsKey(wrapper.KeyObject))
+                    continue;
+
+                var replaceWrapper = new PyObjectWrapper(dict[wrapper.KeyObject], wrapper.Key);
+                replaceWrapper.KeyObject = wrapper.KeyObject;
+
+                Wrappers.RemoveAt(i);
+                Wrappers.Insert(i, replaceWrapper);
+            }
+        }
+
+        private void RemoveItems(List<PyObject> pyObjects, bool byKey = false)
+        {
+            var indexes = FindIndexes(pyObjects, byKey);
             foreach (var index in indexes)
                 Wrappers.RemoveAt(index);
 
-            if (Origin is PyCollection && indexes.Any())
+            if (Origin is PyCollection && indexes.Count > 0)
                 ReindexWrappers(indexes.Min());
         }
 
-        private void AddItems(IEnumerable<PyObject> pyObjects)
+        private void AddItems(IEnumerable<PyObject> entries)
         {
             var isCollection = Origin is PyCollection;
-            foreach (var pyObject in pyObjects)
-                Wrappers.Add(new PyObjectWrapper(pyObject, isCollection ? $"[{Wrappers.Count}]" : null));
+            foreach (PyObject item in entries)
+                Wrappers.Add(new PyObjectWrapper(item, isCollection ? $"[{Wrappers.Count}]" : null));
         }
 
-        private IEnumerable<int> FindIndexes(IEnumerable<PyObject> pyObjects)
+        private void AddItems(IEnumerable<KeyValuePair<PyObject, PyObject>> entries)
         {
-            var set = new HashSet<PyObject>(pyObjects);
-            for (int i = 0; i < Wrappers.Count; i++)
+            foreach (var entry in entries)
             {
-                if (set.Contains(Wrappers[i].Origin))
-                    yield return i;
+                var wrapper = new PyObjectWrapper(entry.Value, entry.Key.ToString());
+                wrapper.KeyObject = entry.Key;
+                Wrappers.Add(wrapper);
             }
+        }
+
+        private List<int> FindIndexes(List<PyObject> pyObjects, bool byKey = false)
+        {
+            var result = new List<int>(pyObjects.Count);
+            var set = new HashSet<PyObject>(pyObjects);
+            for (int i = Wrappers.Count - 1; i >= 0; i--)
+            {
+                var wrapper = Wrappers[i];
+                if (!byKey && set.Contains(wrapper.Origin) || 
+                    byKey && wrapper.KeyObject != null && set.Contains(wrapper.KeyObject))
+                    result.Add(i);
+            }
+            return result;
         }
 
         private void ReindexWrappers(int startIndex)

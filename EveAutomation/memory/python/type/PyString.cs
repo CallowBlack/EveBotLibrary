@@ -42,7 +42,7 @@ namespace EveAutomation.memory.python.type
             var newValue = ReadString(Address + 0x20, (uint)(Length + 1)) ?? "";
             if (newValue == null)
             {
-                NotifyValueRemoved();
+                NotifyObjectRemoved();
                 return false;
             }
 

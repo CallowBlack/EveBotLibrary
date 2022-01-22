@@ -6,24 +6,23 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    using ListChangedArgs = CollectionChangedArgs<PyObject>;
-
-    public class PyList : PyCollection, IListChanged
+    public class PyList : PyCollection, INotifyListChanged
     {
         public PyList(ulong address) : base(address, 0x20) { }
 
-        public event IListChanged.ListChangeHandler? ListChanged;
+        public event EventHandler<ListChangedEventArgs>? ListChanged;
 
         protected override bool UpdateItems()
         {
             if (Count == 0)
             {
-                if (_items.Count != 0)
-                {
-                    var rem = new List<PyObject>(_items);
-                    _items.Clear();
-                    ListChanged?.Invoke(new(this, null, rem, null));
-                }
+                if (_items.Count == 0)
+                    return true;
+
+                var clone = new List<PyObject>(_items);
+                _items.Clear();
+                ListChanged?.Invoke(this, new(null, clone));
+
                 return true;
             }
 
@@ -31,7 +30,7 @@ namespace EveAutomation.memory.python.type
             if (!itemsPtr.HasValue)
             {
                 _items.Clear();
-                NotifyValueRemoved();
+                NotifyObjectRemoved();
                 return false;
             }
 
@@ -39,12 +38,20 @@ namespace EveAutomation.memory.python.type
             if (content == null)
             {
                 _items.Clear();
-                NotifyValueRemoved();
+                NotifyObjectRemoved();
                 return false;
             }
 
-            var added = new List<PyObject>();
-            var removed = new HashSet<PyObject>(_items);
+            var addedItems = new List<PyObject>();
+
+            var oldItems = new Dictionary<PyObject, uint>(_items.Count);
+            foreach (var item in _items)
+            {
+                if (!oldItems.ContainsKey(item))
+                    oldItems[item] = 0;
+                oldItems[item]++;
+            }
+
             _items.Clear();
 
             var reader = new BinaryReader(new MemoryStream(content));
@@ -55,32 +62,50 @@ namespace EveAutomation.memory.python.type
                 if (item == null) return false;
                 _items.Add(item);
 
-                if (removed.Contains(item))
-                    removed.Remove(item);
+                if (oldItems.ContainsKey(item))
+                {
+                    if (oldItems[item]-- == 0)
+                        oldItems.Remove(item);
+                }
                 else
-                    added.Add(item);
+                    addedItems.Add(item);
             }
 
-            if (added.Count == 0 && removed.Count == 0)
+
+            if (addedItems.Count == 0 && oldItems.Count == 0)
                 return true;
 
-            foreach (var item in added)
+            var removedItems = new List<PyObject>(oldItems.Count);
+            foreach (var entry in oldItems)
+            {
+                for (var i = 0; i < entry.Value; i++)
+                    removedItems.Add(entry.Key);
+            }
+
+            foreach (var item in addedItems)
                 AddEventHandlers(item);
 
-            foreach (var item in removed)
+            foreach (var item in removedItems)
                 RemoveEventHandlers(item);
 
             if (_isInitialized)
-                ListChanged?.Invoke(new(this, added, removed.ToList(), null));
+            {
+                ListChanged?.Invoke(this, new(
+                    addedItems.Count == 0 ? null : addedItems, 
+                    removedItems.Count == 0 ? null : removedItems
+                    )); 
+            }
+                
 
             return true;
         }
 
-        private void OnValueChanged(ValueChangedArgs args)
+        private void OnValueChanged(object? sender, ValueChangedEventArgs args)
         {
-            var changedArgs = new ListChangedArgs(this, null, null, new() { args.Sender }, args);
-            if (!changedArgs.IsLoop)
-                ListChanged?.Invoke(changedArgs);
+            if (sender is not PyObject pyObject)
+                return;
+
+            ListChanged?.Invoke(this , new(pyObject));
         }
 
         private void OnValueRemoved(object? sender, EventArgs args)
@@ -91,33 +116,23 @@ namespace EveAutomation.memory.python.type
             {
                 RemoveEventHandlers(pyObject);
                 if (_items.Remove(pyObject))
-                    ListChanged?.Invoke(new ListChangedArgs(this, null, new() { pyObject }, null));
+                    ListChanged?.Invoke(this, new (null, new() { pyObject }));
             }
             catch (InvalidOperationException) { }
         }
 
         private void AddEventHandlers(PyObject value)
         {
-            value.ValueRemoved += OnValueRemoved;
-            value.FieldChanged += OnValueChanged;
-            if (value is IValueChanged vc)
+            value.ObjectRemoved += OnValueRemoved;
+            if (value is INotifyValueChanged vc)
                 vc.ValueChanged += OnValueChanged;
-            if (value is IDictionaryChanged dict)
-                dict.DictionaryChanged += OnValueChanged;
-            else if (value is IListChanged list)
-                list.ListChanged += OnValueChanged;
         }
 
         private void RemoveEventHandlers(PyObject value)
         {
-            value.ValueRemoved -= OnValueRemoved;
-            value.FieldChanged -= OnValueChanged;
-            if (value is IValueChanged vc)
+            value.ObjectRemoved -= OnValueRemoved;
+            if (value is INotifyValueChanged vc)
                 vc.ValueChanged -= OnValueChanged;
-            if (value is IDictionaryChanged dict)
-                dict.DictionaryChanged -= OnValueChanged;
-            else if (value is IListChanged list)
-                list.ListChanged -= OnValueChanged;
         }
 
         public override string ToString()

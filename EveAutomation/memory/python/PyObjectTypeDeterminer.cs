@@ -21,6 +21,8 @@ namespace EveAutomation.memory.python
             { "int",        address => new PyInt(address) },
             { "list",       address => new PyList(address) },
             { "tuple",      address => new PyTuple(address) },
+            { "classobj",   address => new PyClass(address) },
+            { "instance",   address => new PyInstance(address) }
         };
 
         public static PyObject? CreateObject(ulong address)

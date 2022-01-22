@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    public class PyBool : PyObject, IValueChanged
+    public class PyBool : PyObject, INotifyValueChanged
     {
         public bool Value { 
             get
@@ -17,7 +17,7 @@ namespace EveAutomation.memory.python.type
         }
         private bool? _value;
 
-        public event IValueChanged.ValueChangedHandler? ValueChanged;
+        public event EventHandler<ValueChangedEventArgs>? ValueChanged;
 
         public PyBool(ulong address) : base(address, 0x18) { }
 
@@ -33,11 +33,11 @@ namespace EveAutomation.memory.python.type
         private void UpdateValue()
         {
             var newValue = ReadUInt64(Address + 0x10) != 0;
-            var changed = _value.HasValue && _value != newValue;
+            var oldValue = _value;
             _value = newValue;
 
-            if (changed)
-                ValueChanged?.Invoke(new ValueChangedArgs(this));
+            if (oldValue.HasValue && oldValue.Value != newValue)
+                ValueChanged?.Invoke(this, new ValueChangedEventArgs(oldValue, newValue));
         }
 
         public override string ToString()

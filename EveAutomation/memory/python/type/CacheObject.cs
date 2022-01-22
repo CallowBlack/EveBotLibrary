@@ -35,7 +35,7 @@ namespace EveAutomation.memory.python.type
 
         public override byte[]? ReadBytes(ulong startAddress, ulong length)
         {
-            if (length > 0xFFFF)
+            if (length > 0xFFFFFF)
                 return null;
 
             if (startAddress < Address || startAddress + length > Address + Size)

@@ -34,7 +34,7 @@ namespace Py2ObjectViewer
             InitializeComponent();
             EveAutomation.memory.ProcessMemory.Open("exefile");
             EveAutomation.memory.eve.TypeLoader.Initialize();
-            SearchItems("UIRoot", false);
+            SearchItems("ContractsSvc", false);
             DataContext = this;
             SearchText = "";
             DoUpdate();
@@ -51,29 +51,17 @@ namespace Py2ObjectViewer
 
         public void UpdateLoaded()
         {
-            UpdateCount = 0;
-            List<PyObject> loadedClone = new(PyObjectWrapper.loadedObjects);
-            foreach (var item in loadedClone)
+            foreach (var item in PyLoadedObjects.GetObjects())
                 item.Update(true);
         }
 
         public void SearchItems(string name, bool contains = true)
         {
-            PyObjectWrapper.loadedObjects.Clear();
+            PyLoadedObjects.Clear();
 
             PyObjectPool.ScanProcessMemory(new List<String>() { name }, contains);
             PyObjectsWrapped = new ObservableCollection<PyObjectWrapper>(PyObjectPool.GetObjects()
                 .Select(item => new PyObjectWrapper(item)));
-
-            foreach(var item in PyObjectPool.GetObjects())
-            {
-                item.FieldChanged += Item_FieldChanged;
-            }
-        }
-
-        private void Item_FieldChanged(FieldChangedArgs args)
-        {
-            UpdateCount += 1;
         }
 
         public string SearchText { get; set; }
@@ -88,18 +76,6 @@ namespace Py2ObjectViewer
             }
         }
         private ObservableCollection<PyObjectWrapper>? _pyObjectWrapped;
-
-        public int UpdateCount 
-        { 
-            get => _updateCount;
-
-            set 
-            { 
-                _updateCount = value;
-                NotifyPropertyChanged();
-            }
-        }
-        private int _updateCount;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 

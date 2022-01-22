@@ -34,7 +34,7 @@ namespace EveAutomation.memory.python.type
             var unicodeStringPtr = ReadUInt64(Address + 0x18);
             if (Length > 0x1000 || !unicodeStringPtr.HasValue)
             {
-                NotifyValueRemoved();
+                NotifyObjectRemoved();
                 return false;
             }
 
@@ -42,7 +42,7 @@ namespace EveAutomation.memory.python.type
             var rawContent = ReadBytes(unicodeStringPtr.Value, byteLength);
             if (rawContent == null || rawContent.Length < (int)byteLength)
             {
-                NotifyValueRemoved();
+                NotifyObjectRemoved();
                 return false;
             }
 

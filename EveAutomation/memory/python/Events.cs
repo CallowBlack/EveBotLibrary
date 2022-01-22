@@ -1,85 +1,104 @@
 ﻿using EveAutomation.memory.python.type;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python
 {
-    using DictionaryChangedArgs = CollectionChangedArgs<KeyValuePair<PyObject, PyObject>>;
-    using ListChangedArgs = CollectionChangedArgs<PyObject>;
-
-    public interface IValueChanged
+    public interface INotifyValueChanged
     {
-        public delegate void ValueChangedHandler(ValueChangedArgs args);
-        public event ValueChangedHandler? ValueChanged;
+        public event EventHandler<ValueChangedEventArgs>? ValueChanged;
     }
 
-    public interface IFieldChanged
+    public interface INotifyDictionaryChanged
     {
-        public delegate void FieldChangedHandler(FieldChangedArgs args);
-        public event FieldChangedHandler? FieldChanged;
+        public event EventHandler<DictionaryChangedEventArgs>? DictionaryChanged;
     }
 
-    public interface IDictionaryChanged
-    {   
-        public delegate void DictionaryChangedHandler(DictionaryChangedArgs args);
-        public event DictionaryChangedHandler? DictionaryChanged;
+    public interface INotifyListChanged
+    {
+        public event EventHandler<ListChangedEventArgs>? ListChanged;
     }
 
-    public interface IListChanged
+    public interface INotifyObjectRemoved
     {
-        public delegate void ListChangeHandler(ListChangedArgs args);
-        public event ListChangeHandler? ListChanged;
+        public event EventHandler? ObjectRemoved;
     }
 
-    public interface IValueRemoved
+    public class ValueChangedEventArgs : EventArgs
     {
-        public event EventHandler ValueRemoved;
-    }
+        public object OldValue { get; private set; }
+        public object NewValue { get; private set; }
 
-    public class ValueChangedArgs
-    {
-        public PyObject Sender { get; private set; }
-        public ValueChangedArgs? Child { get; private set; }
-
-        protected HashSet<PyObject> visitedChilds;
-
-        public bool IsLoop { get; private set; }
-
-        public ValueChangedArgs(PyObject sender, ValueChangedArgs? child = null)
+        public ValueChangedEventArgs(object oldValue, object newValue)
         {
-            Sender = sender;
-            Child = child;
-            visitedChilds = child?.visitedChilds ?? new();
-            IsLoop = visitedChilds.Contains(sender);
-            visitedChilds.Add(sender);
+            OldValue = oldValue;
+            NewValue = newValue;
         }
     }
 
-    public class FieldChangedArgs : ValueChangedArgs
+    public enum CollectionChangeType
     {
-        public string Name { get; private set; }
-
-        public FieldChangedArgs(PyObject sender, string name, ValueChangedArgs? child = null) : base(sender, child)
-        {
-            Name = name;
-        }
+        ContainerChanged,
+        ItemChanged
     }
 
-    public class CollectionChangedArgs<T> : ValueChangedArgs
+    public class ListChangedEventArgs : EventArgs
     {
-        public List<T>? AddedItems { get; private set; }
-        public List<T>? RemovedItems { get; private set; }
-        public List<T>? ChangedItems { get; private set; }
+        public CollectionChangeType ChangeType { get; private set; }
 
-        public CollectionChangedArgs(PyObject sender, List<T>? addedItems,
-            List<T>? removedItems, List<T>? changedItems, ValueChangedArgs? callerArgs = null) : base(sender, callerArgs)
+        public List<PyObject>? AddedItems { get; private set; }
+        public List<PyObject>? RemovedItems { get; private set; }
+
+        public PyObject? ChangedItem { get; private set; }
+
+        public ListChangedEventArgs(List<PyObject >? addedItems,
+            List<PyObject>? removedItems)
         {
+            ChangeType = CollectionChangeType.ContainerChanged;
+
             AddedItems = addedItems;
             RemovedItems = removedItems;
-            ChangedItems = changedItems;
+        }
+
+        public ListChangedEventArgs(PyObject changedItem)
+        {
+            ChangeType = CollectionChangeType.ItemChanged;
+
+            ChangedItem = changedItem;
+        }
+    }
+
+    public class DictionaryChangedEventArgs : EventArgs
+    {
+        public CollectionChangeType ChangeType { get; private set; }
+
+        public List<KeyValuePair<PyObject, PyObject>>? AddedItems { get; private set; }
+        public List<KeyValuePair<PyObject, PyObject>>? RemovedItems { get; private set; }
+        public List<(PyObject key, PyObject oldValue, PyObject newValue)>? ChangedValues { get; private set; }
+
+        public KeyValuePair<PyObject, PyObject>? ChangedItem { get; private set; }
+
+        public DictionaryChangedEventArgs(
+            List<KeyValuePair<PyObject, PyObject>>? addedItems,
+            List<KeyValuePair<PyObject, PyObject>>? removedItems,
+            List<(PyObject key, PyObject oldValue, PyObject newValue)>? changedValues)
+        {
+            ChangeType = CollectionChangeType.ContainerChanged;
+
+            AddedItems = addedItems;
+            RemovedItems = removedItems;
+            ChangedValues = changedValues;
+        }
+
+        public DictionaryChangedEventArgs(KeyValuePair<PyObject, PyObject>? keyValue)
+        {
+            ChangeType = CollectionChangeType.ItemChanged;
+
+            ChangedItem = keyValue;
         }
     }
 }

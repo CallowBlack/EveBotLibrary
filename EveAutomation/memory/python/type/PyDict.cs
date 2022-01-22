@@ -7,9 +7,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    using DictionaryChangedArgs = CollectionChangedArgs<KeyValuePair<PyObject, PyObject>>;
-
-    public class PyDict : PyObjectVar, IDictionaryChanged
+    public class PyDict : PyObjectVar, INotifyDictionaryChanged
     {
         public Dictionary<PyObject, PyObject> Items 
         { 
@@ -25,7 +23,7 @@ namespace EveAutomation.memory.python.type
             get => ReadUInt64(Address + 0x20) ?? 0; 
         }
 
-        public event IDictionaryChanged.DictionaryChangedHandler? DictionaryChanged;
+        public event EventHandler<DictionaryChangedEventArgs>? DictionaryChanged;
 
         public PyDict(ulong address) : base(address, 0x30) { }
 
@@ -81,10 +79,9 @@ namespace EveAutomation.memory.python.type
         private PyDictEntry ReadEntry(ref BinaryReader reader)
         {
             var hash = reader.ReadUInt64();
-
             var keyPtr = reader.ReadUInt64();
-            
             var objPtr = reader.ReadUInt64();
+
             if (keyPtr == 0 || objPtr == 0) return new PyDictEntry();
 
             var keyObject = PyObjectPool.Get(keyPtr);
@@ -107,46 +104,42 @@ namespace EveAutomation.memory.python.type
             if (content == null)
             {
                 _items.Clear();
-                NotifyValueRemoved();
+                NotifyObjectRemoved();
                 return false;
             }
 
-            var added = new List<KeyValuePair<PyObject, PyObject>>();
-            var removed = new List<KeyValuePair<PyObject, PyObject>>();
-            var updated = new List<KeyValuePair<PyObject, PyObject>>();
+            var addedItems = new List<KeyValuePair<PyObject, PyObject>>();
+            var removedItems = new List<KeyValuePair<PyObject, PyObject>>();
+            var updatedItems = new List<(PyObject key, PyObject oldValue, PyObject newValue)>();
 
             var oldKeys = new HashSet<PyObject>(_items.Keys);
             var reader = new BinaryReader(new MemoryStream(content));
             for (uint i = 0, u = 0; i <= Mask && u < Length; i++)
             {
-
                 var entry = ReadEntry(ref reader);
-                if (entry.GetState() == PyDictEntry.State.Active && entry.key != null) // Sometimes I hate VS2019
-                {
-                    List<KeyValuePair<PyObject, PyObject>> targetList;
-                    if (_items.ContainsKey(entry.key))
-                    {
-                        oldKeys.Remove(entry.key);
-                        if (_items[entry.key].Address == entry.valuePtr)
-                            continue;
-                        targetList = updated;
-                        
-                    }
-                    else
-                        targetList = added;
+                if (entry.GetState() != PyDictEntry.State.Active || entry.key == null) // Sometimes I hate VS2019
+                    continue;
 
-                    var value = PyObjectPool.Get(entry.valuePtr);
-                    if (value == null)
-                        continue;
+                var contains = _items.ContainsKey(entry.key);
+                if (contains)
+                    oldKeys.Remove(entry.key);
 
-                    var keyValue = new KeyValuePair<PyObject, PyObject>(entry.key, value);
-                    targetList.Add(keyValue);
+                if (contains && _items[entry.key].Address == entry.valuePtr)
+                    continue;
+
+                var newValue = PyObjectPool.Get(entry.valuePtr);
+                if (newValue == null)
+                    continue;
+
+                if (contains)
+                    updatedItems.Add((entry.key, _items[entry.key], newValue));
+                else
+                    addedItems.Add(new(entry.key, newValue));
                     
-                    u++;
-                }
+                u++;
             }
 
-            if (added.Count == 0 && removed.Count == 0 && updated.Count == 0)
+            if (addedItems.Count == 0 && removedItems.Count == 0 && updatedItems.Count == 0)
                 return true;
 
             foreach (var removedItem in oldKeys)
@@ -155,27 +148,30 @@ namespace EveAutomation.memory.python.type
                 var value = _items[removedItem];
                 RemoveEventHandlers(key, value);
 
-                removed.Add(new KeyValuePair<PyObject, PyObject>(key, value));
+                removedItems.Add(new KeyValuePair<PyObject, PyObject>(key, value));
 
                 _items.Remove(removedItem);
             }
 
-            foreach (var updatedItem in updated)
+            foreach (var updatedItem in updatedItems)
             {
-                RemoveEventHandlers(null, _items[updatedItem.Key]);
-                AddEventHandlers(null, updatedItem.Value);
+                RemoveEventHandlers(null, updatedItem.oldValue);
+                AddEventHandlers(null, updatedItem.newValue);
 
-                _items[updatedItem.Key] = updatedItem.Value;
+                _items[updatedItem.key] = updatedItem.newValue;
             }
 
-            foreach (var addedItem in added)
+            foreach (var addedItem in addedItems)
             {
                 _items[addedItem.Key] = addedItem.Value;
                 AddEventHandlers(addedItem.Key, addedItem.Value);
             }
             
             if (isInitialized)
-                DictionaryChanged?.Invoke(new(this, added, removed, updated));
+                DictionaryChanged?.Invoke(this, new (
+                    addedItems.Count == 0 ? null : addedItems, 
+                    removedItems.Count == 0 ? null : removedItems,
+                    updatedItems.Count == 0 ? null : updatedItems));
 
             return true;
         }
@@ -213,13 +209,7 @@ namespace EveAutomation.memory.python.type
             if (!_items.ContainsKey(pyObject))
                 return;
 
-            var key = pyObject;
-            var value = _items[pyObject];
-            RemoveEventHandlers(key, value);
-
-            _items.Remove(pyObject);
-
-            DictionaryChanged?.Invoke(new (this, null, new() { new(key, value) }, null));            
+            UpdateDictionary();
         }
 
         private void OnValueRemoved(object? sender, EventArgs args)
@@ -227,27 +217,18 @@ namespace EveAutomation.memory.python.type
             if (sender is not PyObject pyObject)
                 return;
 
-            try
-            {
-                var keyValue = _items.First(item => item.Value == pyObject);
-                RemoveEventHandlers(keyValue.Key, keyValue.Value);
-
-                _items.Remove(keyValue.Key);
-
-                DictionaryChanged?.Invoke(new (this, null, new() { keyValue }, null));
-            } 
-            catch (InvalidOperationException) { }
-
+            UpdateDictionary();
         }
 
-        private void OnValueChanged(ValueChangedArgs args)
+        private void OnValueChanged(object? sender, ValueChangedEventArgs args)
         {
+            if (sender is not PyObject value)
+                return;
+
             try
             {
-                var keyValue = _items.First(item => item.Value == args.Sender);
-                var collectionEventArgs = new DictionaryChangedArgs(this, null, null, new() { keyValue }, args);
-                if (!collectionEventArgs.IsLoop)
-                    DictionaryChanged?.Invoke(collectionEventArgs);
+                var keyValue = _items.First(item => item.Value == value);
+                DictionaryChanged?.Invoke(this, new (keyValue));
             }
             catch (InvalidOperationException) { }
         }
@@ -255,34 +236,21 @@ namespace EveAutomation.memory.python.type
         private void AddEventHandlers(PyObject? key, PyObject value)
         {
             if (key is not null)
-                key.ValueRemoved += OnKeyRemoved;
-            value.ValueRemoved += OnValueRemoved;
+                key.ObjectRemoved += OnKeyRemoved;
+            value.ObjectRemoved += OnValueRemoved;
 
-            value.FieldChanged += OnValueChanged;
-
-            if (value is IValueChanged vc)
+            if (value is INotifyValueChanged vc)
                 vc.ValueChanged += OnValueChanged;
-            if (value is IDictionaryChanged dict)
-                dict.DictionaryChanged += OnValueChanged;
-            else if (value is IListChanged list)
-                list.ListChanged += OnValueChanged;
         }
 
         private void RemoveEventHandlers(PyObject? key, PyObject value)
         {
             if (key is not null)
-                key.ValueRemoved -= OnKeyRemoved;
+                key.ObjectRemoved -= OnKeyRemoved;
+            value.ObjectRemoved -= OnValueRemoved;
 
-            value.ValueRemoved -= OnValueRemoved;
-
-            value.FieldChanged -= OnValueChanged;
-
-            if (value is IValueChanged vc)
+            if (value is INotifyValueChanged vc)
                 vc.ValueChanged -= OnValueChanged;
-            if (value is IDictionaryChanged dict)
-                dict.DictionaryChanged -= OnValueChanged;
-            else if (value is IListChanged list)
-                list.ListChanged -= OnValueChanged;
         }
 
     }

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    public class PyInt : PyObject, IValueChanged
+    public class PyInt : PyObject, INotifyValueChanged
     {
         public int Value {
             get
@@ -17,7 +17,7 @@ namespace EveAutomation.memory.python.type
         }
         private int? _value;
 
-        public event IValueChanged.ValueChangedHandler? ValueChanged;
+        public event EventHandler<ValueChangedEventArgs>? ValueChanged;
 
         public PyInt(ulong address) : base(address, 0x18) { }
 
@@ -33,12 +33,12 @@ namespace EveAutomation.memory.python.type
         private void UpdateValue()
         {
             var newValue = ReadInt32(Address + 0x10) ?? 0;
-            var changed = _value.HasValue && _value != newValue;
+            var oldValue = _value;
             _value = newValue;
 
-            if (changed)
-                ValueChanged?.Invoke(new ValueChangedArgs(this));
-            
+            if (oldValue.HasValue && oldValue != newValue)
+                NotifyObjectRemoved();
+                //ValueChanged?.Invoke(this, new ValueChangedEventArgs(oldValue, newValue));   
         }
 
         public override string ToString()

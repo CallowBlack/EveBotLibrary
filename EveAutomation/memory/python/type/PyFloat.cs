@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace EveAutomation.memory.python.type
 {
-    public class PyFloat : PyObject, IValueChanged
+    public class PyFloat : PyObject, INotifyValueChanged
     {
 
         public double Value
@@ -19,7 +19,7 @@ namespace EveAutomation.memory.python.type
         }
         private double? _value;
 
-        public event IValueChanged.ValueChangedHandler? ValueChanged;
+        public event EventHandler<ValueChangedEventArgs>? ValueChanged;
 
         public PyFloat(ulong address) : base(address, 0x18) { }
 
@@ -37,12 +37,11 @@ namespace EveAutomation.memory.python.type
             var bytes = ReadBytes(Address + 0x10, 10);
             var newValue = BitConverter.ToDouble(bytes);
 
-            var changed = _value.HasValue && _value != newValue;
+            var oldValue = _value;
             _value = newValue;
 
-            if (changed)
-                ValueChanged?.Invoke(new ValueChangedArgs(this));
-            _value = newValue;
+            if (oldValue.HasValue && oldValue != newValue)
+                ValueChanged?.Invoke(this, new ValueChangedEventArgs(oldValue, newValue));
         }
 
         public override string ToString()

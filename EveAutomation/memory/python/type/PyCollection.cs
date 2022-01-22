@@ -39,6 +39,7 @@ namespace EveAutomation.memory.python.type
 
             if (!UpdateItems())
                 return false;
+            _isInitialized = true;
 
             if (!deep)
                 return true;

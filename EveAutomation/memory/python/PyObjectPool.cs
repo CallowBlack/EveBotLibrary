@@ -1,6 +1,7 @@
 ﻿using EveAutomation.memory.python.type;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -22,6 +23,7 @@ namespace EveAutomation.memory.python
                 return null;
 
             _objects.Add(address, newObject);
+            newObject.ObjectRemoved += OnObjectRemoved;
             return newObject;
         }
 
@@ -40,7 +42,7 @@ namespace EveAutomation.memory.python
 
             // Skip buildin types for increase performance
             var buildinTypes = new HashSet<string> { "object", "NoneType", "int", "long", "string", "unicode", "dict", "list", "tuple", "weakref", "bool", "float", "function", "type" };
-            if (!ScanForgarbageCollector() || _garbageCollector == null) {
+            if (_garbageCollector == null && !ScanForgarbageCollector()) {
                 Console.WriteLine("Failed to find garbage collector.");
                 return;
             }
@@ -72,7 +74,14 @@ namespace EveAutomation.memory.python
                     continue;
                 
                 _objects.Add(address, newObject);
+                newObject.ObjectRemoved += OnObjectRemoved;
             }
+        }
+
+        private static void OnObjectRemoved(object? sender, EventArgs e)
+        {
+            if (sender is PyObject pyObject)
+                _objects.Remove(pyObject.Address);
         }
 
         static bool IsGarbageCollector(RegionMemoryReader region)
@@ -109,8 +118,60 @@ namespace EveAutomation.memory.python
 
         }
 
+        static bool GetCollectorFromSavedOffset()
+        {
+            var appSettings = ConfigurationManager.AppSettings;
+            var savedOffsetString = appSettings["GCOffset"] ?? null;
+            if (savedOffsetString == null) return false;
+
+            if (!UInt64.TryParse(savedOffsetString, out var offset)) return false;
+
+            var module = ProcessMemory.Instance.FindModuleByName("python27.dll");
+            if (module == null) return false;
+
+            var gcAddress = (ulong)module.BaseAddress.ToInt64() + offset;
+            var reader = new RegionMemoryReader(new List<(ulong, ulong)>() { (gcAddress, 0x60) });
+            if (!IsGarbageCollector(reader))
+                return false;
+
+            _garbageCollector = new PyGC(gcAddress);
+            return true;
+        }
+
+        static void SaveGCOffset(ulong address)
+        {
+            try
+            {
+                var module = ProcessMemory.Instance.FindModuleByName("python27.dll");
+                if (module == null) return;
+
+                var offset = address - (ulong)module.BaseAddress.ToInt64();
+
+                var confingFile = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+                var settings = confingFile.AppSettings.Settings;
+                
+                var offsetSetting = settings["GCOffset"];
+                if (offsetSetting != null)
+                    offsetSetting.Value = offset.ToString();
+                else
+                    settings.Add("GCOffset", offset.ToString());
+
+                confingFile.Save(ConfigurationSaveMode.Modified);
+                ConfigurationManager.RefreshSection(confingFile.AppSettings.SectionInformation.Name);
+            }
+            catch (ConfigurationErrorsException)
+            {
+                Console.WriteLine("Failed to save GCOffset to settings.");
+            }
+
+        }
+
         static bool ScanForgarbageCollector()
         {
+
+            if (GetCollectorFromSavedOffset())
+                return true;
+
             // Garbage collector must be in image of python27.dll module.
             var pythonRegions = ProcessMemory.Instance.GetModuleRegionsInfo("python27.dll", WinApi.MemoryInformationProtection.PAGE_READWRITE);
             if (pythonRegions == null)
@@ -124,6 +185,7 @@ namespace EveAutomation.memory.python
             {
                 if (IsGarbageCollector(reader))
                 {
+                    SaveGCOffset(reader.Address);
                     _garbageCollector = new PyGC(reader.Address);
                     return true;
                 }

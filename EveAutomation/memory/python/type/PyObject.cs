@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static EveAutomation.memory.python.IValueChanged;
 
 namespace EveAutomation.memory.python.type
 {
-    public class PyObject : CachebleObject, IFieldChanged, IValueRemoved
+    public class PyObject : CachebleObject, INotifyObjectRemoved
     {     
         public PyType Type {
             get {
@@ -41,8 +40,7 @@ namespace EveAutomation.memory.python.type
         private PyType? _type;
         protected ulong typePtr = 0;
 
-        public event EventHandler? ValueRemoved;
-        public event IFieldChanged.FieldChangedHandler? FieldChanged;
+        public event EventHandler? ObjectRemoved;
 
         public PyDict? Dict {
             get
@@ -56,8 +54,6 @@ namespace EveAutomation.memory.python.type
 
                 var dictPtr = ReadUInt64(Address + dictOffset);
                 _dict = PyObjectPool.Get(dictPtr ?? 0) as PyDict;
-                if (_dict != null)
-                    _dict.DictionaryChanged += OnDictChanged;
                 return _dict;
             } 
         }
@@ -80,13 +76,13 @@ namespace EveAutomation.memory.python.type
 
             if (typePtr != 0 && typePtr != ReadUInt64(Address + 0x8))
             {
-                NotifyValueRemoved();
+                NotifyObjectRemoved();
                 return false;
             }
 
             if (_dict != null && Type.DictOffset != 0 && _dict.Address != ReadUInt64(Address + Type.DictOffset))
             {
-                NotifyValueRemoved();
+                NotifyObjectRemoved();
                 return false;
             }
 
@@ -96,25 +92,9 @@ namespace EveAutomation.memory.python.type
             return true;
         }
 
-        protected void OnDictChanged(CollectionChangedArgs<KeyValuePair<PyObject, PyObject>> args)
+        protected void NotifyObjectRemoved()
         {
-            if (args.ChangedItems == null)
-                return;
-
-            foreach(var updatedItem in args.ChangedItems)
-            {
-                if (updatedItem.Key is PyString keyStr)
-                {
-                    var nextArgs = new FieldChangedArgs(this, keyStr.Value, args);
-                    if (!nextArgs.IsLoop)
-                        FieldChanged?.Invoke(nextArgs);
-                }
-            }
-        }
-
-        protected void NotifyValueRemoved()
-        {
-            ValueRemoved?.Invoke(this, new EventArgs());
+            ObjectRemoved?.Invoke(this, new EventArgs());
         }
 
         public override string ToString()

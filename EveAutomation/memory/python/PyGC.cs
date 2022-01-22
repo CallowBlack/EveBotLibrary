@@ -42,7 +42,6 @@ namespace EveAutomation.memory.python
         public PyGC(ulong address)
         {
             this._address = address;
-            readGenerators();
         }
 
         private void readGenerators()
@@ -82,6 +81,8 @@ namespace EveAutomation.memory.python
  
         public IEnumerable<ulong> GetObjectAddresses()
         {
+            readGenerators();
+
             for (uint i = 0; i < _generators.Length; i++)
             {
                 var genAddr = GetGeneratorAddress(i);
