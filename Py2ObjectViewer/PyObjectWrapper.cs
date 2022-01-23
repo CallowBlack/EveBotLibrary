@@ -8,6 +8,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace Py2ObjectViewer
 {
@@ -106,7 +107,8 @@ namespace Py2ObjectViewer
                 yield break;
             }
 
-            if (KeyObject != null && KeyObject is not PyString)
+            if (KeyObject != null && 
+                KeyObject is not INotifyValueChanged && KeyObject is not PyString && KeyObject is not PyUnicode)
             {
                 yield return new PyObjectWrapper(KeyObject, "Key");
                 yield return new PyObjectWrapper(Origin, "Value");
@@ -206,8 +208,11 @@ namespace Py2ObjectViewer
                 var replaceWrapper = new PyObjectWrapper(dict[wrapper.KeyObject], wrapper.Key);
                 replaceWrapper.KeyObject = wrapper.KeyObject;
 
-                Wrappers.RemoveAt(i);
-                Wrappers.Insert(i, replaceWrapper);
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    Wrappers.RemoveAt(i);
+                    Wrappers.Insert(i, replaceWrapper);
+                });
             }
         }
 
@@ -215,7 +220,7 @@ namespace Py2ObjectViewer
         {
             var indexes = FindIndexes(pyObjects, byKey);
             foreach (var index in indexes)
-                Wrappers.RemoveAt(index);
+                Application.Current.Dispatcher.Invoke(() => Wrappers.RemoveAt(index));
 
             if (Origin is PyCollection && indexes.Count > 0)
                 ReindexWrappers(indexes.Min());
@@ -225,7 +230,11 @@ namespace Py2ObjectViewer
         {
             var isCollection = Origin is PyCollection;
             foreach (PyObject item in entries)
-                Wrappers.Add(new PyObjectWrapper(item, isCollection ? $"[{Wrappers.Count}]" : null));
+            {
+                Application.Current.Dispatcher.Invoke(() => 
+                    Wrappers.Add(new PyObjectWrapper(item, isCollection ? $"[{Wrappers.Count}]" : null)));
+            }
+                
         }
 
         private void AddItems(IEnumerable<KeyValuePair<PyObject, PyObject>> entries)
@@ -234,7 +243,7 @@ namespace Py2ObjectViewer
             {
                 var wrapper = new PyObjectWrapper(entry.Value, entry.Key.ToString());
                 wrapper.KeyObject = entry.Key;
-                Wrappers.Add(wrapper);
+                Application.Current.Dispatcher.Invoke(() => Wrappers.Add(wrapper));
             }
         }
 

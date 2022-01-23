@@ -32,49 +32,60 @@ namespace EveAutomation.memory.python
             return _objects.Values.ToList();
         }
 
-
-        public static void ScanProcessMemory(IEnumerable<string>? typeNames = null, bool contains = false)
+        public static void Clear()
         {
-            HashSet<string>? names = !contains && typeNames != null ? new HashSet<string>(typeNames) : null;
+            _objects.Clear();
+            _garbageCollector = null;
+        }
 
-            // Clear all data what was found ago.
+        public static IEnumerable<PyObject> ScanPythonObjects(
+            bool skipBuildinType = true,
+            Func<ulong, string, bool>? typeFilter = null, 
+            Func<PyObject, bool>? objectFilter = null)
+        {
+
+            if (_garbageCollector == null && !ScanForgarbageCollector())
+                throw new DllNotFoundException("Failed to find garbage collector.");
+
             _objects.Clear();
 
-            // Skip buildin types for increase performance
-            var buildinTypes = new HashSet<string> { "object", "NoneType", "int", "long", "string", "unicode", "dict", "list", "tuple", "weakref", "bool", "float", "function", "type" };
-            if (_garbageCollector == null && !ScanForgarbageCollector()) {
-                Console.WriteLine("Failed to find garbage collector.");
-                return;
-            }
+            // Skiping buildin types allows gain performance increase
+            var buildinTypes = new HashSet<string> { 
+                "object", "NoneType", "int", "long", 
+                "string", "unicode", "weakref", "bool", 
+                "float", "function", "type" };
 
             // Adding collector objects to the pool.
             foreach (var address in _garbageCollector.GetObjectAddresses())
             {
+                // If object already exists
                 if (_objects.ContainsKey(address))
                     continue;
 
-                var tn = PyObjectTypeDeterminer.GetType(address);
-                if (tn == null)
-                    continue;
-                
-                if (buildinTypes.Contains(tn))
-                    continue;
-
-                if (typeNames != null)
+                if (skipBuildinType || typeFilter != null)
                 {
-                    if (contains && !typeNames.Any(x => tn.Contains(x)))
+                    var tn = PyObjectTypeDeterminer.GetType(address);
+                    if (tn == null)
                         continue;
 
-                    if (!contains && names != null && !names.Contains(tn))
+                    if (skipBuildinType && buildinTypes.Contains(tn))
+                        continue;
+
+                    if (typeFilter != null && !typeFilter(address, tn))
                         continue;
                 }
 
                 var newObject = PyObjectTypeDeterminer.CreateObject(address);
-                if (newObject == null || newObject.Type.DictOffset == 0)
+                if (newObject == null)
                     continue;
-                
+
+                if (objectFilter != null && !objectFilter(newObject))
+                    continue;
+
                 _objects.Add(address, newObject);
                 newObject.ObjectRemoved += OnObjectRemoved;
+
+                yield return newObject;
             }
         }
 

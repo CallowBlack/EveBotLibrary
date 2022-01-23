@@ -7,37 +7,141 @@
         x:Name="UI"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
-    <DockPanel Margin="5">
-        <StackPanel DockPanel.Dock="Top" HorizontalAlignment="Left" Margin="0, 0, 0, 5" Orientation="Horizontal">
-            <TextBox Text="{Binding SearchText}" Width="200" Margin="0, 0, 5, 0"/>
-            <Button Click="Button_Click" Width="80">Search</Button>
-        </StackPanel>
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="Process">
+                <MenuItem Header="Open" Click="MenuItemOpenProcessClicked"/>
+            </MenuItem>
+        </Menu>
+        <DockPanel Dock="Bottom" Margin="5" IsEnabled="{Binding ElementName=UI, Path=IsAttachedToProcess}">
+            <DockPanel DockPanel.Dock="Top" Margin="0, 0, 0, 5">
+                <StackPanel DockPanel.Dock="Left">
+                    <StackPanel Orientation="Horizontal" Margin="0, 5, 0, 5">
+                        <TextBlock Margin="0, 0, 5, 0">Type name:</TextBlock>
+                        <TextBox Text="{Binding ElementName=UI, Path=SearchText}" Width="200" Margin="0, 0, 5, 0"/>
+                        <Button Click="SearchButtonClicked" Width="80">Search</Button>
+                    </StackPanel>
 
-        <TreeView Name="objTree" 
-                  ItemsSource="{Binding ElementName=UI, Path=PyObjectsWrapped}" 
-                  VirtualizingPanel.IsVirtualizing="True"
-                  VirtualizingPanel.VirtualizationMode="Standard"
-                  BorderThickness="1">
-            <TreeView.Resources>
-                <HierarchicalDataTemplate DataType="{x:Type local:PyObjectWrapper}"
-                                  ItemsSource="{Binding Wrappers}">
-                    <Grid>
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox Content="Contains" IsChecked="{Binding ElementName=UI, Path=Contains}" Margin="0, 1, 3, 0"/>
+                        <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" />
+                        <TextBlock Margin="3, 0, 5, 0"> Deep level</TextBlock>
+                        <TextBox Text="{Binding ElementName=UI, Path=DeepLevel}" Width="100"/>
+                    </StackPanel>
+                </StackPanel>
 
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <StackPanel Orientation="Horizontal" Margin="0, 5, 0, 5">
+                        <TextBlock Width="200">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="{}Updating objects {0:d}/{1:d}">
+                                    <Binding ElementName="UI" Path="UpdatingCount"/>
+                                    <Binding ElementName="UI" Path="LoadedObjects"/>
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                        <ProgressBar Width="200" 
+                                     Value="{Binding ElementName=UI, Path=UpdatingCount}" 
+                                     Maximum="{Binding ElementName=UI, Path=LoadedObjects}"/>
+                    </StackPanel>
 
-                        <TextBlock FontFamily="Courier New" Text="{Binding Origin.Address, StringFormat={}0x{0:X16}}" Grid.Column="0" Margin="0, 0, 15, 0"/>
-                        <TextBlock FontFamily="Courier New" Text="{Binding Key}" Grid.Column="1" Margin="0, 0, 15, 0"/>
-                        <TextBlock FontFamily="Courier New" Text="{Binding Presentation}" Margin="0, 0, 15, 0" Grid.Column="2"/>
-                        <TextBlock FontFamily="Courier New" Text="{Binding Origin.Type.Name}" Grid.Column="3" Margin="0, 0, 15, 0"/>
-                    </Grid>
-                </HierarchicalDataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Width="200">
+                            <TextBlock.Text>
+                                <MultiBinding StringFormat="{}Searching {0:d}/{1:d}">
+                                    <Binding ElementName="UI" Path="SearchFound"/>
+                                    <Binding ElementName="UI" Path="SearchChecked"/>
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                        <ProgressBar Width="200" 
+                                     Value="{Binding ElementName=UI, Path=SearchChecked}" 
+                                     Maximum="{Binding ElementName=UI, Path=SearchMax}"/>
+                    </StackPanel>
+                </StackPanel>
+            </DockPanel>
 
-            </TreeView.Resources>
-        </TreeView>
+
+            <TreeView Name="objTree" 
+                      ItemsSource="{Binding ElementName=UI, Path=PyObjectsWrapped}" 
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Standard"
+                      BorderThickness="1">
+                <TreeView.Resources>
+                    <HierarchicalDataTemplate 
+                        DataType="{x:Type local:PyObjectWrapper}"
+                        ItemsSource="{Binding Wrappers}">
+
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel.Resources>
+                                <ContextMenu x:Key="CopyContextMenu" StaysOpen="true">
+                                    <MenuItem Header="Copy" FontSize="12" Height="20" Click="CopyContextMenuClicked" 
+                                              CommandParameter="{Binding RelativeSource={RelativeSource Self}, Path=Parent}"/>
+                                </ContextMenu>
+
+                                <Style TargetType="{x:Type TextBlock}">
+                                    <Setter Property="ContextMenu" Value="{StaticResource CopyContextMenu}"/>
+                                    <Setter Property="Foreground" Value="Black"/>
+                                    <Setter Property="FontFamily" Value="Courier New"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Foreground" Value="DarkGray"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+
+                                <Style TargetType="{x:Type Separator}">
+                                    <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
+                                    <Setter Property="Margin" Value="10,0,10,0"/>
+                                    <Setter Property="Focusable" Value="false"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="{x:Type Separator}">
+                                                <Border 
+                                                    BorderBrush="Black" 
+                                                    BorderThickness="2" 
+                                                    Background="Black"
+                                                    CornerRadius="4"
+                                                    Height="4" 
+                                                    SnapsToDevicePixels="true"/>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+
+                            </StackPanel.Resources>
+
+                            <StackPanel.Style>
+                                <Style TargetType="{x:Type StackPanel}">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Style.Triggers>
+                                        <EventTrigger RoutedEvent="Binding.TargetUpdated">
+                                            <EventTrigger.Actions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <ColorAnimation Duration="0:0:1" 
+                                                               Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)" From="Red" To="Transparent"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </EventTrigger.Actions>
+                                        </EventTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+
+                            <TextBlock Text="{Binding Origin.Address, StringFormat={}0x{0:X16}, NotifyOnTargetUpdated=True}"/>
+                            <Separator/>
+                            <TextBlock Text="{Binding Key}"/>
+                            <Separator/>
+                            <TextBlock Text="{Binding Presentation}"/>
+                            <Separator/>
+                            <TextBlock Text="{Binding Origin.Type.Name}" />
+
+                        </StackPanel>
+                    </HierarchicalDataTemplate>
+
+                </TreeView.Resources>
+            </TreeView>
+        </DockPanel>
     </DockPanel>
 </Window>

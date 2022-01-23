@@ -74,6 +74,12 @@ namespace EveAutomation.memory.python.type
             if (!base.UpdateObject(deep, visited))
                 return false;
 
+            if (ReadUInt64(Address + 0x0) == 0)
+            {
+                NotifyObjectRemoved();
+                return false;
+            }
+
             if (typePtr != 0 && typePtr != ReadUInt64(Address + 0x8))
             {
                 NotifyObjectRemoved();

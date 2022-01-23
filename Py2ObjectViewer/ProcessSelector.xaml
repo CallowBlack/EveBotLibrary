@@ -1,0 +1,43 @@
+﻿<Window x:Class="Py2ObjectViewer.ProcessSelector"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Py2ObjectViewer"
+        mc:Ignorable="d"
+        x:Name="UI"
+        Title="ProcessSelector" Height="450" Width="400">
+    <Window.Resources>
+        <local:ProcessToIconImageConverter x:Key="processToIconImageConverter"/>
+
+        <Style x:Key="itemstyle" TargetType="{x:Type ListViewItem}">
+            <EventSetter Event="MouseDoubleClick" Handler="ItemProcessDoubleClicked" />
+        </Style>
+        
+    </Window.Resources>
+    <DockPanel>
+        
+        <StackPanel DockPanel.Dock="Bottom" HorizontalAlignment="Stretch">
+            <Button Width="100" Click="RefreshClicked" Margin="0, 5, 0, 5">Refresh</Button>
+        </StackPanel>
+
+        <ListView x:Name="processListView" DockPanel.Dock="Top" 
+                  ItemsSource="{Binding ElementName=UI, Path=Processes}"
+                  ItemContainerStyle="{StaticResource itemstyle}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Width="30">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <Image Source="{Binding Converter={StaticResource processToIconImageConverter}}"
+                                       MaxWidth="32" MaxHeight="32"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Header="ID" Width="50" DisplayMemberBinding="{Binding Id}"/>
+                    <GridViewColumn Header="Name" Width="270" DisplayMemberBinding="{Binding ProcessName}"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </DockPanel>
+</Window>

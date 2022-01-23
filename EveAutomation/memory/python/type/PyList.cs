@@ -64,13 +64,13 @@ namespace EveAutomation.memory.python.type
 
                 if (oldItems.ContainsKey(item))
                 {
-                    if (oldItems[item]-- == 0)
+                    oldItems[item]--;
+                    if (oldItems[item] == 0)
                         oldItems.Remove(item);
                 }
                 else
                     addedItems.Add(item);
             }
-
 
             if (addedItems.Count == 0 && oldItems.Count == 0)
                 return true;
