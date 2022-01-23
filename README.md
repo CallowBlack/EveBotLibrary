@@ -20,4 +20,5 @@ Planned solution will use process memory reading for getting information and use
 Library for bot development.
 
 ### Py2ObjectViewer
-Simple tool for looking Python 2 objects in Eve Online process.
+Simple Python2 object explorer in Eve Online. <br/><br/>
+![Alt text](/resources/py2ObjectViewerExample.jpg?raw=true "Py2ObjectViewer Screenshot")
