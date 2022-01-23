@@ -6,7 +6,7 @@ Planned solution will use process memory reading for getting information and use
 (More information about this method - [Sanderling](https://github.com/Arcitectus/Sanderling))
 
 ## Goals
-- [ ] Read python object from memory
+- [x] Read python object from memory
 - [ ] Read Eve UI objects from memory
 - [ ] Research ways to get information
 - [ ] Eve UI abstraction
