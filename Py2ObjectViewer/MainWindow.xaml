@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:Py2ObjectViewer"
         x:Name="UI"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="Py2ObjectViewer" Height="450" Width="800">
     <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="Process">
